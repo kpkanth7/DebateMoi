@@ -321,6 +321,48 @@ if "debate_state" not in st.session_state:
     st.session_state.debate_state = None
 if "debate_events" not in st.session_state:
     st.session_state.debate_events = []
+if "recovered" not in st.session_state:
+    st.session_state.recovered = False
+
+
+# ---------------------------------------------------------------------------
+# Helper: Recover Session from SQLite Checkpoint
+# ---------------------------------------------------------------------------
+def try_recover_session(sid: str):
+    """Attempt to load a previous debate state from the SQLite checkpoint."""
+    if st.session_state.recovered and st.session_state.debate_events:
+        return  # Already recovered for this session
+    try:
+        graph, conn = create_graph()
+        config = {"configurable": {"thread_id": sid}}
+        saved = graph.get_state(config)
+        if saved and saved.values and saved.values.get("arguments_for"):
+            state = dict(saved.values)
+            # Rebuild debate_events from the saved state
+            events = []
+            args_for = state.get("arguments_for", [])
+            args_against = state.get("arguments_against", [])
+            rounds_played = max(len(args_for), len(args_against))
+            for i in range(rounds_played):
+                if i < len(args_for):
+                    events.append({
+                        "type": "pro",
+                        "round": args_for[i].get("round", i + 1),
+                        "content": args_for[i].get("content", ""),
+                    })
+                if i < len(args_against):
+                    events.append({
+                        "type": "con",
+                        "round": args_against[i].get("round", i + 1),
+                        "content": args_against[i].get("content", ""),
+                    })
+            st.session_state.debate_events = events
+            st.session_state.debate_state = state
+            st.session_state.debate_complete = bool(state.get("winner"))
+            st.session_state.recovered = True
+        conn.close()
+    except Exception:
+        pass  # No saved state or DB doesn't exist yet
 
 
 # ---------------------------------------------------------------------------
@@ -394,16 +436,29 @@ with st.sidebar:
     session_id = st.text_input(
         "Session ID",
         value=st.session_state.session_id,
-        help="Edit to resume a previous debate session",
+        help="Your unique debate save code. Copy it to resume this debate later, or paste an old one to reload a previous session.",
     )
+    if session_id != st.session_state.session_id:
+        st.session_state.session_id = session_id
+        st.session_state.recovered = False  # Reset recovery flag for new ID
+        st.session_state.debate_events = []
+        st.session_state.debate_state = None
+        st.session_state.debate_complete = False
     st.session_state.session_id = session_id
+
+    st.markdown("""
+    <div style="font-size: 0.72rem; color: #555570; line-height: 1.5; margin: -0.5rem 0 0.8rem 0; padding: 0.5rem 0.6rem; background: rgba(255,255,255,0.02); border-radius: 6px; border-left: 2px solid rgba(0, 212, 255, 0.3);">
+        💾 <strong style="color: #8888a0;">Save & Resume</strong> — This ID links to your debate's saved state.
+        If you refresh or close the tab, just paste this ID back to reload your full debate transcript.
+    </div>
+    """, unsafe_allow_html=True)
 
     # Topic
     topic = st.text_area(
         "Debate Topic",
-        placeholder="e.g. 'AI will replace most white-collar jobs within 10 years'",
+        placeholder="Enter your debate topic here...\n\ne.g. 'AI will replace most white-collar jobs within 10 years' or 'Space exploration is a waste of taxpayer money'",
         max_chars=200,
-        height=80,
+        height=150,
         help="Enter the topic to debate (max 200 characters)",
     )
 
@@ -475,9 +530,22 @@ if remaining_debates <= 0 and not st.session_state.debate_running and not st.ses
 
 
 # ---------------------------------------------------------------------------
+# Auto-recover session from checkpoint (on page load / refresh)
+# ---------------------------------------------------------------------------
+try_recover_session(session_id)
+
+# ---------------------------------------------------------------------------
 # Display Previous Debate (from session state)
 # ---------------------------------------------------------------------------
 if st.session_state.debate_events and not st.session_state.debate_running:
+    # Show recovery banner if we loaded from checkpoint
+    if st.session_state.recovered:
+        st.markdown(f"""
+        <div style="text-align: center; padding: 0.6rem 1rem; background: rgba(0, 212, 255, 0.06); border: 1px solid rgba(0, 212, 255, 0.15); border-radius: 10px; margin-bottom: 1.5rem; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #8888a0;">
+            🔄 Session <strong style="color: #00d4ff;">{session_id}</strong> restored from saved state
+        </div>
+        """, unsafe_allow_html=True)
+
     for event in st.session_state.debate_events:
         render_card(event["type"], event["round"], event["content"])
 
