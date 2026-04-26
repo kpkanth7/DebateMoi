@@ -8,6 +8,7 @@ rate limiting, and dramatic verdict reveal.
 import json
 import uuid
 import streamlit as st
+import streamlit.components.v1 as components
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -392,10 +393,23 @@ def get_user_ip() -> str:
 # ---------------------------------------------------------------------------
 # Helper: Render Debate Card (inline HTML)
 # ---------------------------------------------------------------------------
+import re
+
+def _md_to_html(text: str) -> str:
+    """Convert basic markdown to HTML for card display."""
+    # Bold: **text** → <strong>text</strong>
+    text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
+    # Italic: *text* → <em>text</em>
+    text = re.sub(r'\*(.+?)\*', r'<em>\1</em>', text)
+    # Convert newlines to <br> for proper spacing
+    text = text.replace('\n\n', '<br><br>').replace('\n', '<br>')
+    return text
+
 def render_card_html(agent_type: str, round_num: int, content: str) -> str:
     """Return styled debate argument card HTML."""
     icon = "⚔️" if agent_type == "pro" else "🛡️" if agent_type == "con" else "⚖️"
     label = "PRO AGENT" if agent_type == "pro" else "CON AGENT" if agent_type == "con" else "JUDGE"
+    formatted = _md_to_html(content)
     return f"""
     <div class="debate-card {agent_type}">
         <div class="card-header">
@@ -403,7 +417,7 @@ def render_card_html(agent_type: str, round_num: int, content: str) -> str:
             <span class="agent-name {agent_type}">{label}</span>
             <span class="round-badge">Round {round_num}</span>
         </div>
-        <div class="card-content">{content}</div>
+        <div class="card-content">{formatted}</div>
     </div>
     """
 
@@ -437,6 +451,7 @@ def show_verdict(state):
     judge_scores_str = state.get("judge_scores", "")
 
     st.markdown("---")
+    st.markdown('<div id="verdict-section"></div>', unsafe_allow_html=True)
 
     winner_class = "pro" if winner == "Pro" else "con"
     winner_icon = "⚔️" if winner == "Pro" else "🛡️"
@@ -505,18 +520,33 @@ def show_verdict(state):
     except (json.JSONDecodeError, ValueError):
         pass
 
-    with st.expander("📝 Full Judge's Reasoning"):
-        st.markdown(f'<div style="color: #8888a0; font-family: JetBrains Mono, monospace; font-size: 0.85rem; line-height: 1.7;">{reasoning}</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-family: \'Inter\', sans-serif; font-weight: 800; font-size: 1.1rem; color: var(--text-primary); margin: 2rem 0 1rem 0;">📝 Full Judge\'s Reasoning</div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 1.5rem; color: var(--text-secondary); font-family: \'JetBrains Mono\', monospace; font-size: 0.9rem; line-height: 1.7; box-shadow: 0 4px 20px rgba(0,0,0,0.05); margin-bottom: 2rem;">{reasoning}</div>', unsafe_allow_html=True)
 
     try:
         scores = json.loads(judge_scores_str) if judge_scores_str else {}
         key_moments = scores.get("key_moments", [])
         if key_moments:
-            with st.expander("🔑 Key Moments"):
-                for i, moment in enumerate(key_moments, 1):
-                    st.markdown(f'<div style="color: #8888a0; font-size: 0.85rem; margin: 0.3rem 0;">**{i}.** {moment}</div>', unsafe_allow_html=True)
+            st.markdown('<div style="font-family: \'Inter\', sans-serif; font-weight: 800; font-size: 1.1rem; color: var(--text-primary); margin: 1rem 0;">🔑 Key Moments</div>', unsafe_allow_html=True)
+            moments_html = ""
+            for i, moment in enumerate(key_moments, 1):
+                moments_html += f'<div style="margin-bottom: 0.8rem; display: flex; gap: 0.8rem;"><strong style="color: var(--judge-color);">{i}.</strong> <span>{moment}</span></div>'
+            st.markdown(f'<div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 1.5rem; color: var(--text-secondary); font-size: 0.9rem; line-height: 1.6; box-shadow: 0 4px 20px rgba(0,0,0,0.05);">{moments_html}</div>', unsafe_allow_html=True)
     except (json.JSONDecodeError, ValueError):
         pass
+
+    # Auto-scroll to verdict
+    components.html(
+        """
+        <script>
+            var element = window.parent.document.getElementById("verdict-section");
+            if (element) {
+                element.scrollIntoView({behavior: "smooth", block: "start"});
+            }
+        </script>
+        """,
+        height=0
+    )
 
 # ---------------------------------------------------------------------------
 # Main Title

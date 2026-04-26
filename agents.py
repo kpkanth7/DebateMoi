@@ -26,9 +26,9 @@ load_dotenv()
 # ---------------------------------------------------------------------------
 DEBATER_MODEL = "gemini-2.5-flash"
 JUDGE_MODEL = "gpt-4o-mini"
-DEBATER_MAX_TOKENS = 1024
+DEBATER_MAX_TOKENS = 4096   # High ceiling — thinking_budget=0 means all tokens go to output
 JUDGE_MAX_TOKENS = 1500
-TOTAL_TOKEN_BUDGET = 15000
+TOTAL_TOKEN_BUDGET = 15000  # Tracks output tokens only
 
 
 # ---------------------------------------------------------------------------
@@ -59,6 +59,7 @@ def _get_debater_llm():
     return ChatGoogleGenerativeAI(
         model=DEBATER_MODEL,
         max_output_tokens=DEBATER_MAX_TOKENS,
+        thinking_budget=0,  # Disable internal reasoning — all tokens go to visible output
         temperature=0.8,
         google_api_key=os.getenv("GOOGLE_API_KEY"),
     )
