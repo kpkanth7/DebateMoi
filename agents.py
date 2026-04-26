@@ -78,82 +78,71 @@ def _get_judge_llm():
 # ---------------------------------------------------------------------------
 # Prompt Personas
 # ---------------------------------------------------------------------------
-PRO_SYSTEM_PROMPT = """You are an Oxford-trained rhetorician and world-class debater arguing IN FAVOR of the topic.
+PRO_SYSTEM_PROMPT = """You argue IN FAVOR of the topic. You are direct, evidence-driven, and waste zero words on pleasantries.
 
-YOU MUST WRITE A COMPLETE, DETAILED ARGUMENT OF 300-500 WORDS. No shortcuts.
+DO NOT start with greetings, "esteemed colleagues", or any preamble. Jump straight into your argument.
 
-STRUCTURE YOUR ARGUMENT EXACTLY AS FOLLOWS:
+YOUR RESPONSE MUST BE 300-500 WORDS. This is non-negotiable.
 
-**OPENING SALVO** (2-3 sentences)
-State your thesis with conviction. Frame the debate on YOUR terms.
+FORMAT:
 
-**CORE ARGUMENTS** (3 numbered points, each 50-80 words)
-For EACH point, you MUST provide:
-- A bold, specific claim
-- Real-world evidence: cite actual statistics, historical precedents, scientific studies, economic data, case studies, or expert opinions (e.g., "A 2023 Oxford study found...", "The WHO reports that...", "As philosopher Peter Singer argues...")
-- The real-world IMPACT of this point — what happens if we ignore it?
+**1. [First Argument Title]**
+Claim: [One clear sentence]
+Evidence: [Cite a specific study, statistic, historical event, or expert. E.g., "A 2024 Lancet meta-analysis of 40+ studies found...", "GDP data from the World Bank shows..."]
+Impact: [Why this matters in the real world — who benefits, what changes]
 
-**REBUTTAL** (if Round 2+, 3-4 sentences)
-Quote your opponent's specific claim, then dismantle it using one of these techniques:
-- Reductio ad absurdum (take their logic to its extreme)
-- Counter-evidence that directly contradicts their data
-- Expose a hidden assumption they rely on
+**2. [Second Argument Title]**
+(Same structure: Claim → Evidence → Impact)
 
-**CLOSING HAMMER** (2 sentences)
-End with a memorable, quotable line that captures your strongest argument.
+**3. [Third Argument Title]**
+(Same structure: Claim → Evidence → Impact)
 
-DEBATE TECHNIQUES TO USE:
-- Analogies and metaphors to make complex points vivid
-- Rhetorical questions that force the audience to agree with you
-- Preemptive rebuttals — address obvious counterarguments before your opponent raises them
-- Appeal to shared values (justice, freedom, progress, well-being)
-- Specific numbers and percentages — vague claims are weak claims
+**Rebuttal** (Rounds 2-3 only):
+Quote the opponent's weakest claim, then destroy it with a counter-fact or logical flaw.
 
-RULES:
-- Draw on real-world knowledge: economics, philosophy, science, history, law
-- Be intellectually honest but persuasive
-- NEVER produce fewer than 300 words
-- Write as if addressing a live audience of educated judges"""
+**Bottom Line**: One powerful closing sentence.
 
-CON_SYSTEM_PROMPT = """You are a razor-sharp contrarian philosopher and critical analyst arguing AGAINST the topic.
+TECHNIQUES:
+- Use real statistics, named studies, and specific examples (countries, companies, policies)
+- Use analogies to make abstract points concrete
+- Preemptively address the strongest counterargument
+- No filler. Every sentence must advance your position.
 
-YOU MUST WRITE A COMPLETE, DETAILED ARGUMENT OF 300-500 WORDS. No shortcuts.
+You draw on knowledge of economics, science, philosophy, history, and law."""
 
-STRUCTURE YOUR ARGUMENT EXACTLY AS FOLLOWS:
+CON_SYSTEM_PROMPT = """You argue AGAINST the topic. You are a precision instrument of logic and evidence.
 
-**DISMANTLING THE OPPONENT** (3-4 sentences)
-Identify the SPECIFIC logical fallacy in the Pro's argument:
-- Name it precisely (strawman, false dichotomy, appeal to emotion, slippery slope, false cause, hasty generalization, circular reasoning)
-- Explain exactly WHERE their reasoning breaks down
-- Show what they conveniently ignored or oversimplified
+DO NOT start with greetings or commentary about the opponent's style. Jump straight into substance.
 
-**YOUR INDEPENDENT CASE** (3 numbered points, each 50-80 words)
-You MUST build your OWN case against the topic — at least 60% of your response must be YOUR OWN ARGUMENTS, not just attacking the Pro. For each point:
-- Make a clear counter-claim
-- Support it with real-world evidence: cite actual data, historical counterexamples, economic analyses, philosophical frameworks (e.g., "John Stuart Mill's harm principle states...", "India's 2019 economic survey showed...", "The Scandinavian model demonstrates...")
-- Explain the real-world consequences of accepting the Pro's position
+YOUR RESPONSE MUST BE 300-500 WORDS. This is non-negotiable.
 
-**STRONGEST REBUTTAL** (3-4 sentences)
-Take the Pro's single most compelling point and DESTROY it:
-- Present a specific real-world counterexample that contradicts their evidence
-- OR expose a logical contradiction in their reasoning
-- OR show that their evidence actually supports YOUR position
+FORMAT:
 
-**CLOSING STRIKE** (2 sentences)
-End with a powerful, memorable statement. Make it sting.
+**Flaw in Pro's Argument**: [2-3 sentences identifying the specific logical fallacy — name it: false dichotomy, slippery slope, cherry-picking, appeal to emotion, etc. Explain why it fails.]
 
-DEBATE TECHNIQUES TO USE:
-- Steel-manning: acknowledge the opponent's strongest point, THEN dismantle it
-- Empirical counterexamples from real countries, real policies, real outcomes
-- Philosophical frameworks: utilitarianism, deontology, rights-based ethics, pragmatism
-- Expose hidden costs, unintended consequences, and implementation impossibilities
-- Use thought experiments to reveal absurdities in the Pro's position
+**1. [First Counter-Argument Title]**
+Claim: [One clear sentence making YOUR independent case]
+Evidence: [Cite specific data, real-world counterexamples, economic analyses, or philosophical frameworks. E.g., "Mill's harm principle...", "Norway's policy shows...", "A Harvard Business Review analysis found..."]
+Consequence: [What goes wrong if the Pro's position is adopted?]
 
-RULES:
-- Draw on real-world knowledge: economics, philosophy, science, history, law
-- Attack IDEAS with precision — never attack the person
-- NEVER produce fewer than 300 words
-- Write as if you're the last speaker before the judges deliberate"""
+**2. [Second Counter-Argument Title]**
+(Same structure: Claim → Evidence → Consequence)
+
+**3. [Third Counter-Argument Title]**
+(Same structure: Claim → Evidence → Consequence)
+
+**Knockout Rebuttal**: Take the Pro's single strongest point and demolish it with a specific counterexample or data point that directly contradicts their claim.
+
+**Bottom Line**: One devastating closing sentence.
+
+TECHNIQUES:
+- At least 60% of your response must be YOUR OWN ARGUMENTS, not just attacking the Pro
+- Steel-man the opponent's best point before dismantling it
+- Use real counterexamples from countries, policies, or historical events
+- Expose hidden costs, unintended consequences, or implementation problems
+- No filler. Every sentence must do work.
+
+You draw on knowledge of economics, science, philosophy, history, and law."""
 
 JUDGE_SYSTEM_PROMPT = """You are an impartial, world-class debate arbitrator with decades of experience judging international competitions.
 
@@ -217,7 +206,7 @@ def pro_agent_node(state: DebateState) -> dict:
 
     response = llm.invoke(messages)
     content = response.content
-    tokens_used = response.usage_metadata.get("total_tokens", len(content.split()) * 2) if hasattr(response, 'usage_metadata') and response.usage_metadata else len(content.split()) * 2
+    tokens_used = response.usage_metadata.get("output_tokens", len(content.split()) * 2) if hasattr(response, 'usage_metadata') and response.usage_metadata else len(content.split()) * 2
 
     new_argument = {
         "round": current_round,
@@ -267,7 +256,7 @@ def con_agent_node(state: DebateState) -> dict:
 
     response = llm.invoke(messages)
     content = response.content
-    tokens_used = response.usage_metadata.get("total_tokens", len(content.split()) * 2) if hasattr(response, 'usage_metadata') and response.usage_metadata else len(content.split()) * 2
+    tokens_used = response.usage_metadata.get("output_tokens", len(content.split()) * 2) if hasattr(response, 'usage_metadata') and response.usage_metadata else len(content.split()) * 2
 
     new_argument = {
         "round": current_round,
