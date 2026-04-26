@@ -25,81 +25,97 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+# ---------------------------------------------------------------------------
+# Theme State
+# ---------------------------------------------------------------------------
+if "theme" not in st.session_state:
+    st.session_state.theme = "Dark"
 
 # ---------------------------------------------------------------------------
-# Custom CSS — Cinematic Dark Mode Terminal Aesthetic
+# Custom CSS — Dynamic Theme
 # ---------------------------------------------------------------------------
-st.markdown("""
+_t = st.session_state.theme
+if _t == "Light":
+    _bg1, _bg2, _bgc = "#f4f4f8", "#ffffff", "rgba(255,255,255,0.9)"
+    _txt1, _txt2, _txtm = "#1a1a2e", "#3a3a5a", "#7a7a9a"
+    _border = "rgba(0,0,0,0.08)"
+    _sidebar_bg = "linear-gradient(180deg, #eeeef4 0%, #f8f8fc 100%)"
+    _card_shadow_pro = "rgba(0, 212, 255, 0.12)"
+    _card_shadow_con = "rgba(255, 0, 110, 0.12)"
+    _dot_color = "rgba(0,0,0,0.04)"
+else:
+    _bg1, _bg2, _bgc = "#0a0a0f", "#0f0f18", "rgba(15, 15, 24, 0.85)"
+    _txt1, _txt2, _txtm = "#e8e8f0", "#8888a0", "#555570"
+    _border = "rgba(255, 255, 255, 0.06)"
+    _sidebar_bg = "linear-gradient(180deg, #08080d 0%, #0d0d16 100%)"
+    _card_shadow_pro = "rgba(0, 212, 255, 0.08)"
+    _card_shadow_con = "rgba(255, 0, 110, 0.08)"
+    _dot_color = "rgba(255,255,255,0.03)"
+st.markdown(f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap');
 
-    /* === ROOT VARIABLES === */
-    :root {
-        --bg-primary: #0a0a0f;
-        --bg-secondary: #0f0f18;
-        --bg-card: rgba(15, 15, 24, 0.85);
+    :root {{
+        --bg-primary: {_bg1};
+        --bg-secondary: {_bg2};
+        --bg-card: {_bgc};
         --pro-color: #00d4ff;
         --pro-glow: rgba(0, 212, 255, 0.3);
         --con-color: #ff006e;
         --con-glow: rgba(255, 0, 110, 0.3);
         --judge-color: #ffd700;
         --judge-glow: rgba(255, 215, 0, 0.3);
-        --text-primary: #e8e8f0;
-        --text-secondary: #8888a0;
-        --text-muted: #555570;
-        --border-subtle: rgba(255, 255, 255, 0.06);
-    }
+        --text-primary: {_txt1};
+        --text-secondary: {_txt2};
+        --text-muted: {_txtm};
+        --border-subtle: {_border};
+    }}
 
-    /* === GLOBAL === */
-    .stApp, [data-testid="stAppViewContainer"] {
+    .stApp, [data-testid="stAppViewContainer"] {{
         background: var(--bg-primary) !important;
         color: var(--text-primary) !important;
         font-family: 'Inter', sans-serif !important;
-    }
+    }}
 
-    .stApp::before {
+    .stApp::before {{
         content: '';
         position: fixed;
         top: 0; left: 0; right: 0; bottom: 0;
-        background-image: radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px);
+        background-image: radial-gradient({_dot_color} 1px, transparent 1px);
         background-size: 30px 30px;
         pointer-events: none;
         z-index: 0;
-    }
+    }}
 
-    /* === SIDEBAR === */
-    [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #08080d 0%, #0d0d16 100%) !important;
+    [data-testid="stSidebar"] {{
+        background: {_sidebar_bg} !important;
         border-right: 1px solid var(--border-subtle) !important;
-    }
+    }}
 
-    [data-testid="stSidebar"] * {
+    [data-testid="stSidebar"] * {{
         color: var(--text-primary) !important;
-    }
+    }}
 
-    /* === HEADINGS === */
-    h1, h2, h3 {
+    h1, h2, h3 {{
         font-family: 'Inter', sans-serif !important;
         font-weight: 800 !important;
-    }
+    }}
 
-    /* === INPUTS === */
-    .stTextInput input, .stTextArea textarea {
+    .stTextInput input, .stTextArea textarea {{
         background: var(--bg-secondary) !important;
         border: 1px solid var(--border-subtle) !important;
         color: var(--text-primary) !important;
         font-family: 'JetBrains Mono', monospace !important;
         border-radius: 8px !important;
         transition: border-color 0.3s ease, box-shadow 0.3s ease !important;
-    }
+    }}
 
-    .stTextInput input:focus, .stTextArea textarea:focus {
+    .stTextInput input:focus, .stTextArea textarea:focus {{
         border-color: var(--pro-color) !important;
         box-shadow: 0 0 15px var(--pro-glow) !important;
-    }
+    }}
 
-    /* === START DEBATE BUTTON === */
-    [data-testid="stSidebar"] .stButton > button {
+    [data-testid="stSidebar"] .stButton > button {{
         background: linear-gradient(135deg, #00d4ff 0%, #a855f7 50%, #ff006e 100%) !important;
         color: #fff !important;
         font-family: 'Inter', sans-serif !important;
@@ -113,19 +129,18 @@ st.markdown("""
         cursor: pointer !important;
         transition: all 0.3s ease !important;
         box-shadow: 0 4px 20px rgba(0, 212, 255, 0.25) !important;
-    }
+    }}
 
-    [data-testid="stSidebar"] .stButton > button:hover {
+    [data-testid="stSidebar"] .stButton > button:hover {{
         transform: translateY(-2px) !important;
         box-shadow: 0 8px 30px rgba(0, 212, 255, 0.4), 0 0 40px rgba(168, 85, 247, 0.2) !important;
-    }
+    }}
 
-    [data-testid="stSidebar"] .stButton > button:active {
+    [data-testid="stSidebar"] .stButton > button:active {{
         transform: scale(0.97) !important;
-    }
+    }}
 
-    /* === DEBATE CARDS === */
-    .debate-card {
+    .debate-card {{
         background: var(--bg-card);
         backdrop-filter: blur(12px);
         border-radius: 12px;
@@ -135,44 +150,44 @@ st.markdown("""
         animation: fadeSlideIn 0.6s ease-out;
         font-family: 'JetBrains Mono', monospace;
         line-height: 1.7;
-    }
+    }}
 
-    .debate-card.pro {
+    .debate-card.pro {{
         border-left: 3px solid var(--pro-color);
-        box-shadow: 0 4px 20px rgba(0, 212, 255, 0.08);
-    }
+        box-shadow: 0 4px 20px {_card_shadow_pro};
+    }}
 
-    .debate-card.con {
+    .debate-card.con {{
         border-left: 3px solid var(--con-color);
-        box-shadow: 0 4px 20px rgba(255, 0, 110, 0.08);
-    }
+        box-shadow: 0 4px 20px {_card_shadow_con};
+    }}
 
-    .debate-card.judge {
+    .debate-card.judge {{
         border: 2px solid var(--judge-color);
         box-shadow: 0 4px 30px var(--judge-glow);
         background: rgba(40, 35, 10, 0.5);
-    }
+    }}
 
-    .card-header {
+    .card-header {{
         display: flex;
         align-items: center;
         gap: 0.5rem;
         margin-bottom: 0.8rem;
         font-family: 'Inter', sans-serif;
-    }
+    }}
 
-    .card-header .agent-name {
+    .card-header .agent-name {{
         font-weight: 700;
         font-size: 0.95rem;
         text-transform: uppercase;
         letter-spacing: 1px;
-    }
+    }}
 
-    .card-header .agent-name.pro { color: var(--pro-color); }
-    .card-header .agent-name.con { color: var(--con-color); }
-    .card-header .agent-name.judge { color: var(--judge-color); }
+    .card-header .agent-name.pro {{ color: var(--pro-color); }}
+    .card-header .agent-name.con {{ color: var(--con-color); }}
+    .card-header .agent-name.judge {{ color: var(--judge-color); }}
 
-    .round-badge {
+    .round-badge {{
         display: inline-block;
         background: rgba(255,255,255,0.06);
         padding: 0.15rem 0.6rem;
@@ -182,16 +197,15 @@ st.markdown("""
         font-weight: 600;
         letter-spacing: 0.5px;
         text-transform: uppercase;
-    }
+    }}
 
-    .card-content {
+    .card-content {{
         color: var(--text-secondary);
         font-size: 0.88rem;
         white-space: pre-wrap;
-    }
+    }}
 
-    /* === VERDICT === */
-    .verdict-winner {
+    .verdict-winner {{
         text-align: center;
         font-family: 'Inter', sans-serif;
         font-weight: 900;
@@ -199,50 +213,38 @@ st.markdown("""
         margin: 1rem 0;
         text-shadow: 0 0 30px var(--judge-glow);
         animation: glowPulse 2s ease-in-out infinite;
-    }
+    }}
 
-    .verdict-winner.pro { color: var(--pro-color); text-shadow: 0 0 30px var(--pro-glow); }
-    .verdict-winner.con { color: var(--con-color); text-shadow: 0 0 30px var(--con-glow); }
+    .verdict-winner.pro {{ color: var(--pro-color); text-shadow: 0 0 30px var(--pro-glow); }}
+    .verdict-winner.con {{ color: var(--con-color); text-shadow: 0 0 30px var(--con-glow); }}
 
-    .score-bar-container {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin: 0.3rem 0;
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.8rem;
-    }
-
-    .score-label { width: 140px; color: var(--text-muted); }
-
-    .score-bar {
+    .score-bar {{
         flex: 1;
         height: 8px;
         background: rgba(255,255,255,0.05);
         border-radius: 4px;
         overflow: hidden;
-    }
+    }}
 
-    .score-fill {
+    .score-fill {{
         height: 100%;
         border-radius: 4px;
         transition: width 1s ease;
-    }
+    }}
 
-    .score-fill.pro { background: linear-gradient(90deg, var(--pro-color), #00a8cc); }
-    .score-fill.con { background: linear-gradient(90deg, var(--con-color), #cc005a); }
+    .score-fill.pro {{ background: linear-gradient(90deg, var(--pro-color), #00a8cc); }}
+    .score-fill.con {{ background: linear-gradient(90deg, var(--con-color), #cc005a); }}
 
-    .score-value {
+    .score-value {{
         width: 30px;
         text-align: right;
         font-weight: 600;
-    }
+    }}
 
-    .score-value.pro { color: var(--pro-color); }
-    .score-value.con { color: var(--con-color); }
+    .score-value.pro {{ color: var(--pro-color); }}
+    .score-value.con {{ color: var(--con-color); }}
 
-    /* === TITLE === */
-    .main-title {
+    .main-title {{
         text-align: center;
         font-family: 'Inter', sans-serif;
         font-weight: 900;
@@ -253,9 +255,9 @@ st.markdown("""
         background-clip: text;
         margin-bottom: 0.2rem;
         animation: fadeSlideIn 0.8s ease-out;
-    }
+    }}
 
-    .main-subtitle {
+    .main-subtitle {{
         text-align: center;
         font-family: 'JetBrains Mono', monospace;
         font-size: 0.85rem;
@@ -263,47 +265,44 @@ st.markdown("""
         letter-spacing: 2px;
         text-transform: uppercase;
         margin-bottom: 2rem;
-    }
+    }}
 
-    /* === RATE LIMIT BANNER === */
-    .rate-limit-banner {
+    .rate-limit-banner {{
         background: linear-gradient(135deg, rgba(255,0,110,0.15), rgba(255,0,110,0.05));
         border: 1px solid rgba(255,0,110,0.3);
         border-radius: 12px;
         padding: 2rem;
         text-align: center;
         margin: 2rem 0;
-    }
+    }}
 
-    .rate-limit-banner h3 { color: var(--con-color); }
-    .rate-limit-banner p { color: var(--text-secondary); }
+    .rate-limit-banner h3 {{ color: var(--con-color); }}
+    .rate-limit-banner p {{ color: var(--text-secondary); }}
 
-    /* === ANIMATIONS === */
-    @keyframes fadeSlideIn {
-        from { opacity: 0; transform: translateY(15px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
+    @keyframes fadeSlideIn {{
+        from {{ opacity: 0; transform: translateY(15px); }}
+        to {{ opacity: 1; transform: translateY(0); }}
+    }}
 
-    @keyframes glowPulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.85; }
-    }
+    @keyframes glowPulse {{
+        0%, 100% {{ opacity: 1; }}
+        50% {{ opacity: 0.85; }}
+    }}
 
-    /* === STREAMLIT OVERRIDES === */
-    .stMarkdown, .stMarkdown p { color: var(--text-primary) !important; }
-    [data-testid="stExpander"] {
+    .stMarkdown, .stMarkdown p {{ color: var(--text-primary) !important; }}
+    [data-testid="stExpander"] {{
         background: var(--bg-card) !important;
         border: 1px solid var(--border-subtle) !important;
         border-radius: 10px !important;
-    }
-    .stDownloadButton > button {
+    }}
+    .stDownloadButton > button {{
         background: linear-gradient(135deg, #ffd700, #ff8c00) !important;
         color: #000 !important;
         font-weight: 700 !important;
         border: none !important;
         border-radius: 8px !important;
-    }
-    div[data-testid="stStatusWidget"] { visibility: hidden; }
+    }}
+    div[data-testid="stStatusWidget"] {{ visibility: hidden; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -383,14 +382,13 @@ def get_user_ip() -> str:
 
 
 # ---------------------------------------------------------------------------
-# Helper: Render Debate Card
+# Helper: Render Debate Card (inline HTML)
 # ---------------------------------------------------------------------------
-def render_card(agent_type: str, round_num: int, content: str):
-    """Render a styled debate argument card."""
+def render_card_html(agent_type: str, round_num: int, content: str) -> str:
+    """Return styled debate argument card HTML."""
     icon = "⚔️" if agent_type == "pro" else "🛡️" if agent_type == "con" else "⚖️"
     label = "PRO AGENT" if agent_type == "pro" else "CON AGENT" if agent_type == "con" else "JUDGE"
-
-    html = f"""
+    return f"""
     <div class="debate-card {agent_type}">
         <div class="card-header">
             <span style="font-size: 1.2rem;">{icon}</span>
@@ -400,7 +398,10 @@ def render_card(agent_type: str, round_num: int, content: str):
         <div class="card-content">{content}</div>
     </div>
     """
-    st.markdown(html, unsafe_allow_html=True)
+
+def render_card(agent_type: str, round_num: int, content: str):
+    """Render a styled debate argument card."""
+    st.markdown(render_card_html(agent_type, round_num, content), unsafe_allow_html=True)
 
 
 def render_score_bar(label: str, pro_val: int, con_val: int):
@@ -419,6 +420,97 @@ def render_score_bar(label: str, pro_val: int, con_val: int):
 
 
 # ---------------------------------------------------------------------------
+# Helper: Show Verdict
+# ---------------------------------------------------------------------------
+def show_verdict(state):
+    """Display the dramatic verdict section."""
+    winner = state.get("winner", "Unknown")
+    reasoning = state.get("reasoning", "")
+    judge_scores_str = state.get("judge_scores", "")
+
+    st.markdown("---")
+
+    winner_class = "pro" if winner == "Pro" else "con"
+    winner_icon = "⚔️" if winner == "Pro" else "🛡️"
+
+    verdict_html = f"""
+    <div class="debate-card judge">
+        <div style="text-align: center; margin-bottom: 0.5rem;">
+            <span style="font-size: 2rem;">⚖️</span>
+        </div>
+        <div class="verdict-winner {winner_class}">
+            {winner_icon} {winner.upper()} AGENT WINS {winner_icon}
+        </div>
+    </div>
+    """
+    st.markdown(verdict_html, unsafe_allow_html=True)
+
+    try:
+        scores = json.loads(judge_scores_str) if judge_scores_str else {}
+        if scores and not scores.get("parse_error"):
+            pro_scores = scores.get("pro_scores", {})
+            con_scores = scores.get("con_scores", {})
+
+            categories = [
+                ("Logical Consistency", "logic"),
+                ("Evidence Strength", "evidence"),
+                ("Rhetorical Skill", "rhetoric"),
+                ("Rebuttal Quality", "rebuttal"),
+                ("Argument Originality", "originality"),
+            ]
+
+            st.markdown(f"""
+            <div style="display: flex; gap: 10px; align-items: center; margin: 12px 0 4px 0; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;">
+                <div style="width: 160px;"></div>
+                <div style="width: 30px; text-align: right; color: #00d4ff; font-weight: 700;">PRO</div>
+                <div style="flex: 1;"></div>
+                <div style="width: 20px;"></div>
+                <div style="flex: 1;"></div>
+                <div style="width: 30px; text-align: left; color: #ff006e; font-weight: 700;">CON</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            for label, key in categories:
+                render_score_bar(label, pro_scores.get(key, 0), con_scores.get(key, 0))
+
+            st.markdown(f"""
+            <div style="display: flex; justify-content: center; gap: 3rem; margin: 1.5rem 0; font-family: 'Inter', sans-serif;">
+                <div style="text-align: center;">
+                    <div style="font-size: 2rem; font-weight: 800; color: #00d4ff;">{scores.get('pro_total', '-')}</div>
+                    <div style="font-size: 0.7rem; color: #555570; text-transform: uppercase; letter-spacing: 1px;">Pro Total</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 2rem; font-weight: 800; color: #ff006e;">{scores.get('con_total', '-')}</div>
+                    <div style="font-size: 0.7rem; color: #555570; text-transform: uppercase; letter-spacing: 1px;">Con Total</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            deciding = scores.get("deciding_factor", "")
+            if deciding:
+                st.markdown(f"""
+                <div style="text-align: center; padding: 1rem; background: rgba(255, 215, 0, 0.05); border: 1px solid rgba(255, 215, 0, 0.2); border-radius: 10px; margin: 1rem 0;">
+                    <div style="font-size: 0.7rem; color: #ffd700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.3rem;">Deciding Factor</div>
+                    <div style="font-size: 0.9rem; color: #8888a0; font-style: italic;">{deciding}</div>
+                </div>
+                """, unsafe_allow_html=True)
+    except (json.JSONDecodeError, ValueError):
+        pass
+
+    with st.expander("📝 Full Judge's Reasoning"):
+        st.markdown(f'<div style="color: #8888a0; font-family: JetBrains Mono, monospace; font-size: 0.85rem; line-height: 1.7;">{reasoning}</div>', unsafe_allow_html=True)
+
+    try:
+        scores = json.loads(judge_scores_str) if judge_scores_str else {}
+        key_moments = scores.get("key_moments", [])
+        if key_moments:
+            with st.expander("🔑 Key Moments"):
+                for i, moment in enumerate(key_moments, 1):
+                    st.markdown(f'<div style="color: #8888a0; font-size: 0.85rem; margin: 0.3rem 0;">**{i}.** {moment}</div>', unsafe_allow_html=True)
+    except (json.JSONDecodeError, ValueError):
+        pass
+
+# ---------------------------------------------------------------------------
 # Main Title
 # ---------------------------------------------------------------------------
 st.markdown('<div class="main-title">DebateMoi</div>', unsafe_allow_html=True)
@@ -429,6 +521,18 @@ st.markdown('<div class="main-subtitle">AI-Powered Debate Arena</div>', unsafe_a
 # Sidebar
 # ---------------------------------------------------------------------------
 with st.sidebar:
+    # Theme selector
+    theme_choice = st.radio(
+        "Theme",
+        ["Dark", "Light"],
+        index=0 if st.session_state.theme == "Dark" else 1,
+        horizontal=True,
+        key="theme_radio",
+    )
+    if theme_choice != st.session_state.theme:
+        st.session_state.theme = theme_choice
+        st.rerun()
+
     st.markdown("### ⚙️ Debate Configuration")
     st.markdown("---")
 
@@ -530,6 +634,30 @@ if remaining_debates <= 0 and not st.session_state.debate_running and not st.ses
 
 
 # ---------------------------------------------------------------------------
+# Helper: Render side-by-side rounds
+# ---------------------------------------------------------------------------
+def render_rounds_side_by_side(events):
+    """Display debate events in side-by-side Pro (left) vs Con (right) layout."""
+    # Group events by round
+    rounds = {}
+    for e in events:
+        r = e["round"]
+        if r not in rounds:
+            rounds[r] = {}
+        rounds[r][e["type"]] = e["content"]
+
+    for r in sorted(rounds.keys()):
+        st.markdown(f'<div style="text-align:center;margin:1.2rem 0 0.6rem;font-family:Inter,sans-serif;font-weight:700;font-size:0.8rem;letter-spacing:2px;color:#555570;text-transform:uppercase;">— Round {r} —</div>', unsafe_allow_html=True)
+        col_pro, col_con = st.columns(2)
+        with col_pro:
+            if "pro" in rounds[r]:
+                st.markdown(render_card_html("pro", r, rounds[r]["pro"]), unsafe_allow_html=True)
+        with col_con:
+            if "con" in rounds[r]:
+                st.markdown(render_card_html("con", r, rounds[r]["con"]), unsafe_allow_html=True)
+
+
+# ---------------------------------------------------------------------------
 # Auto-recover session from checkpoint (on page load / refresh)
 # ---------------------------------------------------------------------------
 try_recover_session(session_id)
@@ -538,7 +666,6 @@ try_recover_session(session_id)
 # Display Previous Debate (from session state)
 # ---------------------------------------------------------------------------
 if st.session_state.debate_events and not st.session_state.debate_running:
-    # Show recovery banner if we loaded from checkpoint
     if st.session_state.recovered:
         st.markdown(f"""
         <div style="text-align: center; padding: 0.6rem 1rem; background: rgba(0, 212, 255, 0.06); border: 1px solid rgba(0, 212, 255, 0.15); border-radius: 10px; margin-bottom: 1.5rem; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #8888a0;">
@@ -546,114 +673,15 @@ if st.session_state.debate_events and not st.session_state.debate_running:
         </div>
         """, unsafe_allow_html=True)
 
-    for event in st.session_state.debate_events:
-        render_card(event["type"], event["round"], event["content"])
+    render_rounds_side_by_side(st.session_state.debate_events)
 
-    # Show verdict if complete
     if st.session_state.debate_complete and st.session_state.debate_state:
-        _show_verdict(st.session_state.debate_state)
+        show_verdict(st.session_state.debate_state)
 
 
 # ---------------------------------------------------------------------------
 # Run Debate
 # ---------------------------------------------------------------------------
-def _show_verdict(state):
-    """Display the dramatic verdict section."""
-    winner = state.get("winner", "Unknown")
-    reasoning = state.get("reasoning", "")
-    judge_scores_str = state.get("judge_scores", "")
-
-    st.markdown("---")
-
-    # Verdict card
-    winner_class = "pro" if winner == "Pro" else "con"
-    winner_icon = "⚔️" if winner == "Pro" else "🛡️"
-
-    verdict_html = f"""
-    <div class="debate-card judge">
-        <div style="text-align: center; margin-bottom: 0.5rem;">
-            <span style="font-size: 2rem;">⚖️</span>
-        </div>
-        <div class="verdict-winner {winner_class}">
-            {winner_icon} {winner.upper()} AGENT WINS {winner_icon}
-        </div>
-    </div>
-    """
-    st.markdown(verdict_html, unsafe_allow_html=True)
-
-    # Scores
-    try:
-        scores = json.loads(judge_scores_str) if judge_scores_str else {}
-        if scores and not scores.get("parse_error"):
-            pro_scores = scores.get("pro_scores", {})
-            con_scores = scores.get("con_scores", {})
-
-            st.markdown("")
-            categories = [
-                ("Logical Consistency", "logic"),
-                ("Evidence Strength", "evidence"),
-                ("Rhetorical Skill", "rhetoric"),
-                ("Rebuttal Quality", "rebuttal"),
-                ("Argument Originality", "originality"),
-            ]
-
-            # Score header
-            st.markdown(f"""
-            <div style="display: flex; gap: 10px; align-items: center; margin: 12px 0 4px 0; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;">
-                <div style="width: 160px;"></div>
-                <div style="width: 30px; text-align: right; color: #00d4ff; font-weight: 700;">PRO</div>
-                <div style="flex: 1;"></div>
-                <div style="width: 20px;"></div>
-                <div style="flex: 1;"></div>
-                <div style="width: 30px; text-align: left; color: #ff006e; font-weight: 700;">CON</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            for label, key in categories:
-                render_score_bar(label, pro_scores.get(key, 0), con_scores.get(key, 0))
-
-            # Totals
-            st.markdown(f"""
-            <div style="display: flex; justify-content: center; gap: 3rem; margin: 1.5rem 0; font-family: 'Inter', sans-serif;">
-                <div style="text-align: center;">
-                    <div style="font-size: 2rem; font-weight: 800; color: #00d4ff;">{scores.get('pro_total', '-')}</div>
-                    <div style="font-size: 0.7rem; color: #555570; text-transform: uppercase; letter-spacing: 1px;">Pro Total</div>
-                </div>
-                <div style="text-align: center;">
-                    <div style="font-size: 2rem; font-weight: 800; color: #ff006e;">{scores.get('con_total', '-')}</div>
-                    <div style="font-size: 0.7rem; color: #555570; text-transform: uppercase; letter-spacing: 1px;">Con Total</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            # Deciding factor
-            deciding = scores.get("deciding_factor", "")
-            if deciding:
-                st.markdown(f"""
-                <div style="text-align: center; padding: 1rem; background: rgba(255, 215, 0, 0.05); border: 1px solid rgba(255, 215, 0, 0.2); border-radius: 10px; margin: 1rem 0;">
-                    <div style="font-size: 0.7rem; color: #ffd700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.3rem;">Deciding Factor</div>
-                    <div style="font-size: 0.9rem; color: #8888a0; font-style: italic;">{deciding}</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-    except (json.JSONDecodeError, ValueError):
-        pass
-
-    # Reasoning expander
-    with st.expander("📝 Full Judge's Reasoning"):
-        st.markdown(f'<div style="color: #8888a0; font-family: JetBrains Mono, monospace; font-size: 0.85rem; line-height: 1.7;">{reasoning}</div>', unsafe_allow_html=True)
-
-    # Key moments expander
-    try:
-        scores = json.loads(judge_scores_str) if judge_scores_str else {}
-        key_moments = scores.get("key_moments", [])
-        if key_moments:
-            with st.expander("🔑 Key Moments"):
-                for i, moment in enumerate(key_moments, 1):
-                    st.markdown(f'<div style="color: #8888a0; font-size: 0.85rem; margin: 0.3rem 0;">**{i}.** {moment}</div>', unsafe_allow_html=True)
-    except (json.JSONDecodeError, ValueError):
-        pass
-
 
 if start_clicked:
     # Validation
@@ -686,6 +714,7 @@ if start_clicked:
         config = {"configurable": {"thread_id": session_id}}
 
         # Stream the debate
+        current_pro = None  # Buffer for side-by-side rendering
         with st.status("🎭 Debate in progress...", expanded=True) as status:
             for event in graph.stream(initial_state, config=config, stream_mode="updates"):
                 for node_name, node_output in event.items():
@@ -693,7 +722,7 @@ if start_clicked:
                         args = node_output.get("arguments_for", [])
                         if args:
                             latest = args[-1]
-                            render_card("pro", latest["round"], latest["content"])
+                            current_pro = latest
                             st.session_state.debate_events.append({
                                 "type": "pro", "round": latest["round"], "content": latest["content"]
                             })
@@ -702,10 +731,19 @@ if start_clicked:
                         args = node_output.get("arguments_against", [])
                         if args:
                             latest = args[-1]
-                            render_card("con", latest["round"], latest["content"])
                             st.session_state.debate_events.append({
                                 "type": "con", "round": latest["round"], "content": latest["content"]
                             })
+                            # Render side-by-side now that we have both
+                            rnd = latest["round"]
+                            st.markdown(f'<div style="text-align:center;margin:1.2rem 0 0.6rem;font-family:Inter,sans-serif;font-weight:700;font-size:0.8rem;letter-spacing:2px;color:#555570;text-transform:uppercase;">— Round {rnd} —</div>', unsafe_allow_html=True)
+                            c1, c2 = st.columns(2)
+                            with c1:
+                                if current_pro:
+                                    st.markdown(render_card_html("pro", current_pro["round"], current_pro["content"]), unsafe_allow_html=True)
+                            with c2:
+                                st.markdown(render_card_html("con", rnd, latest["content"]), unsafe_allow_html=True)
+                            current_pro = None
 
                     elif node_name == "judge":
                         # Save the full state after judge runs
@@ -739,7 +777,7 @@ if start_clicked:
 
         # Show verdict
         if st.session_state.debate_state:
-            _show_verdict(st.session_state.debate_state)
+            show_verdict(st.session_state.debate_state)
             st.balloons()
 
     except Exception as e:
