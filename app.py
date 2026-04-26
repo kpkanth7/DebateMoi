@@ -96,6 +96,14 @@ st.markdown(f"""
         color: var(--text-primary) !important;
     }}
 
+    [data-testid="stHeader"] {{
+        background: var(--bg-primary) !important;
+    }}
+
+    header[data-testid="stHeader"] {{
+        background: var(--bg-primary) !important;
+    }}
+
     h1, h2, h3 {{
         font-family: 'Inter', sans-serif !important;
         font-weight: 800 !important;
@@ -594,7 +602,7 @@ with st.sidebar:
     # Token usage display
     if st.session_state.debate_state:
         tokens = st.session_state.debate_state.get("total_tokens", 0)
-        pct = min(100, (tokens / 5000) * 100)
+        pct = min(100, (tokens / 15000) * 100)
         bar_color = "#00d4ff" if pct < 60 else "#ffd700" if pct < 85 else "#ff006e"
         st.markdown(f"""
         <div style="margin-top: 0.5rem;">
@@ -602,7 +610,7 @@ with st.sidebar:
             <div style="background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden; height: 6px;">
                 <div style="width: {pct}%; height: 100%; background: {bar_color}; border-radius: 4px; transition: width 0.5s;"></div>
             </div>
-            <div style="font-size: 0.7rem; color: #555570; margin-top: 2px; text-align: right;">{tokens:,} / 5,000</div>
+            <div style="font-size: 0.7rem; color: #555570; margin-top: 2px; text-align: right;">{tokens:,} / 15,000</div>
         </div>
         """, unsafe_allow_html=True)
 
