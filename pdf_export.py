@@ -128,8 +128,40 @@ def _render_argument(pdf: DebatePDF, label: str, content: str,
 
     pdf.set_font("Helvetica", "", 10)
     pdf.set_text_color(60, 60, 70)
-    pdf.set_x(15)
-    pdf.multi_cell(180, 5, _clean_unicode(content), new_x="LMARGIN", new_y="NEXT")
+    
+    cleaned = _clean_unicode(content)
+    for line in cleaned.split('\n'):
+        line = line.strip()
+        if not line:
+            pdf.ln(3)
+            continue
+            
+        pdf.set_x(15)
+        if line.startswith('**') and '**:' in line:
+            # Handle inline bold labels like "**Claim**: some text"
+            title, rest = line.split('**:', 1)
+            title = title.strip('* ')
+            pdf.set_font("Helvetica", "B", 10)
+            pdf.set_text_color(200, 200, 210)
+            # We don't have inline bold in simple fpdf, so we print the title then the rest on a new line
+            pdf.multi_cell(180, 5, title + ":", new_x="LMARGIN", new_y="NEXT")
+            pdf.set_font("Helvetica", "", 10)
+            pdf.set_text_color(60, 60, 70)
+            pdf.set_x(18)
+            pdf.multi_cell(177, 5, rest.strip(), new_x="LMARGIN", new_y="NEXT")
+        elif line.startswith('**') and line.endswith('**'):
+            # Handle full-line headings
+            pdf.ln(2)
+            pdf.set_x(15)
+            pdf.set_font("Helvetica", "B", 11)
+            pdf.set_text_color(*border_color)
+            pdf.multi_cell(180, 6, line.strip('* '), new_x="LMARGIN", new_y="NEXT")
+            pdf.set_font("Helvetica", "", 10)
+            pdf.set_text_color(60, 60, 70)
+        else:
+            # Normal text
+            line = line.replace('**', '') # Strip any remaining bold tags
+            pdf.multi_cell(180, 5, line, new_x="LMARGIN", new_y="NEXT")
 
     y_end = pdf.get_y()
 
