@@ -20,21 +20,21 @@ The whole thing runs on a cinematic dark-mode UI that streams the debate in real
 | Component | Technology | Why |
 |---|---|---|
 | **Orchestration** | LangGraph + LangChain | Best-in-class for stateful, cyclic multi-agent flows |
-| **Pro/Con Agents** | Gemini 2.5 Flash | Ultra cost-efficient (~$0.002/debate), fast, strong reasoning |
+| **Pro/Con Agents** | DeepSeek V4 | Ultra cost-efficient, fast, strong reasoning |
 | **Judge Agent** | GPT-4o-mini | Excellent at structured JSON output and impartial evaluation |
 | **UI** | Streamlit | Rapid development of interactive LLM dashboards |
 | **Persistence** | SQLite (SqliteSaver) | Reliable local checkpoints — survives restarts |
 | **PDF Export** | fpdf2 | Lightweight, colorful PDF generation |
 | **Rate Limiting** | Custom SQLite-backed | IP-based, 3 debates/day, persistent across restarts |
 
-> **Note on Models**: I've used Gemini 2.5 Flash to keep costs minimal (~$0.002 per debate). If you want even stronger reasoning, you can easily swap in Anthropic's Claude, OpenAI's GPT-4o, or any other model — just update the model name in `agents.py`. The architecture is completely provider-agnostic.
+> **Note on Models**: I've used DeepSeek V4 to keep costs minimal. If you want even stronger reasoning, you can easily swap in Anthropic's Claude, OpenAI's GPT-4o, or any other model — just update the model name in `agents.py`. The architecture is completely provider-agnostic.
 
 ## How to Run
 
 ### Prerequisites
 - Python 3.10+
 - [uv](https://docs.astral.sh/uv/) (recommended) or pip
-- API keys for Google (Gemini) and OpenAI
+- API keys for DeepSeek and OpenAI
 
 ### Setup
 
@@ -77,16 +77,16 @@ START → Pro Agent → Con Agent → Increment Round → Budget Guard → Route
 
 - **Pro Agent**: Argues IN FAVOR — uses Claim → Evidence → Impact structure
 - **Con Agent**: Argues AGAINST — dismantles opponent's logic, builds independent counter-stance
-- **Budget Guard**: Monitors total token usage (5,000 cap) — forces early verdict if exceeded
+- **Budget Guard**: Monitors total token usage (15,000 cap) — forces early verdict if exceeded
 - **Judge Agent**: Evaluates across 5 categories, outputs structured JSON with scores and key moments
 
 ## Cost Control
 
 This project is built to be deployment-friendly without burning through your wallet:
 
-- **Cheap models by default**: Gemini 2.5 Flash for debaters (~$0.10/1M input tokens)
-- **Token caps**: 512 tokens/turn for debaters, 1,000 for the judge
-- **Session budget**: 5,000 total tokens per debate
+- **Cheap models by default**: DeepSeek V4 for debaters
+- **Token caps**: 4096 tokens/turn for debaters, 1,500 for the judge
+- **Session budget**: 15,000 total tokens per debate
 - **Rate limiting**: 3 debates/day per IP address
 - **Input sanitization**: Topics capped at 200 characters
 

@@ -4,11 +4,11 @@ DebateMoi — Agent Definitions & State Schema
 Defines the DebateState, Pro/Con/Judge node functions, budget guard, and router.
 
 Models:
-  - Pro & Con agents: Gemini 2.5 Flash (cost-efficient, strong reasoning)
+  - Pro & Con agents: DeepSeek V4 (cost-efficient, strong reasoning)
   - Judge: GPT-4o-mini (excellent structured JSON output)
 
 You can swap models by changing the model name below. For stronger reasoning,
-try "claude-sonnet-4-6" (Anthropic) or "gpt-4o" (OpenAI).
+try "claude-3-7-sonnet" (Anthropic) or "gpt-4o" (OpenAI).
 """
 
 import json
@@ -24,7 +24,7 @@ load_dotenv()
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-DEBATER_MODEL = "gemini-2.5-flash"
+DEBATER_MODEL = "deepseek-chat" # DeepSeek V4 / V3
 JUDGE_MODEL = "gpt-4o-mini"
 DEBATER_MAX_TOKENS = 4096   # High ceiling — thinking_budget=0 means all tokens go to output
 JUDGE_MAX_TOKENS = 1500
@@ -54,14 +54,14 @@ class DebateState(TypedDict):
 # LLM Factory
 # ---------------------------------------------------------------------------
 def _get_debater_llm():
-    """Returns the debater LLM instance (Gemini 2.5 Flash by default)."""
-    from langchain_google_genai import ChatGoogleGenerativeAI
-    return ChatGoogleGenerativeAI(
+    """Returns the debater LLM instance (DeepSeek by default)."""
+    from langchain_openai import ChatOpenAI
+    return ChatOpenAI(
         model=DEBATER_MODEL,
-        max_output_tokens=DEBATER_MAX_TOKENS,
-        thinking_budget=0,  # Disable internal reasoning — all tokens go to visible output
+        max_tokens=DEBATER_MAX_TOKENS,
         temperature=0.8,
-        google_api_key=os.getenv("GOOGLE_API_KEY"),
+        api_key=os.getenv("DEEPSEEK_API_KEY"),
+        base_url="https://api.deepseek.com",
     )
 
 
