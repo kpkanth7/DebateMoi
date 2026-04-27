@@ -26,9 +26,9 @@ load_dotenv()
 # ---------------------------------------------------------------------------
 DEBATER_MODEL = "deepseek-v4-flash"
 JUDGE_MODEL = "gpt-4o-mini"
-DEBATER_MAX_TOKENS = 1024   # Max tokens per debater
+DEBATER_MAX_TOKENS = 512    # Max tokens per debater
 JUDGE_MAX_TOKENS = 1024     # Max tokens for judge
-TOTAL_TOKEN_BUDGET = 7000   # Hard cap on output tokens
+TOTAL_TOKEN_BUDGET = 6000   # Hard cap on output tokens
 
 
 # ---------------------------------------------------------------------------
@@ -83,7 +83,7 @@ PRO_SYSTEM_PROMPT = """You argue IN FAVOR of the topic. You are an extremely kno
 
 DO NOT start with greetings. Jump straight into your argument.
 
-YOUR RESPONSE MUST BE BETWEEN 512 AND 1024 TOKENS (roughly 400-800 words). This is non-negotiable.
+YOUR RESPONSE MUST BE BETWEEN 300 AND 500 TOKENS (roughly 250-400 words). This is non-negotiable.
 
 FORMAT:
 
@@ -115,7 +115,7 @@ CON_SYSTEM_PROMPT = """You argue AGAINST the topic. You are an extremely knowled
 
 DO NOT start with greetings. Jump straight into substance.
 
-YOUR RESPONSE MUST BE BETWEEN 512 AND 1024 TOKENS (roughly 400-800 words). This is non-negotiable.
+YOUR RESPONSE MUST BE BETWEEN 300 AND 500 TOKENS (roughly 250-400 words). This is non-negotiable.
 
 FORMAT:
 

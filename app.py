@@ -110,6 +110,10 @@ st.markdown(f"""
         font-weight: 800 !important;
     }}
 
+    [data-testid="InputInstructions"] {{
+        display: none !important;
+    }}
+
     .stTextInput input, .stTextArea textarea {{
         background: var(--bg-secondary) !important;
         border: 1px solid var(--border-subtle) !important;
@@ -551,10 +555,11 @@ def show_verdict(state):
 # ---------------------------------------------------------------------------
 # Main Title & Top Bar
 # ---------------------------------------------------------------------------
-col_title, col_download = st.columns([0.7, 0.3])
+col_empty, col_title, col_download = st.columns([1, 2, 1])
+
 with col_title:
-    st.markdown('<div class="main-title">DebateMoi</div>', unsafe_allow_html=True)
-    st.markdown('<div class="main-subtitle">AI-Powered Debate Arena</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title" style="text-align: center;">DebateMoi</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-subtitle" style="text-align: center;">AI-Powered Debate Arena</div>', unsafe_allow_html=True)
 
 with col_download:
     # PDF Export button (only after debate is complete)
@@ -613,7 +618,7 @@ with st.sidebar:
     # Topic
     topic = st.text_area(
         "Debate Topic",
-        height=120,
+        height=180,
         placeholder="e.g., Should artificial intelligence research be paused globally?",
         disabled=st.session_state.debate_running or st.session_state.debate_complete
     )
@@ -648,7 +653,7 @@ with st.sidebar:
     # Token usage display
     if st.session_state.debate_state:
         tokens = st.session_state.debate_state.get("total_tokens", 0)
-        pct = min(100, (tokens / 7000) * 100)
+        pct = min(100, (tokens / 6000) * 100)
         bar_color = "#00d4ff" if pct < 60 else "#ffd700" if pct < 85 else "#ff006e"
         st.markdown(f"""
         <div style="margin-top: 0.5rem;">
@@ -656,7 +661,7 @@ with st.sidebar:
             <div style="background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden; height: 6px;">
                 <div style="width: {pct}%; height: 100%; background: {bar_color}; border-radius: 4px; transition: width 0.5s;"></div>
             </div>
-            <div style="font-size: 0.7rem; color: #555570; margin-top: 2px; text-align: right;">{tokens:,} / 7,000</div>
+            <div style="font-size: 0.7rem; color: #555570; margin-top: 2px; text-align: right;">{tokens:,} / 6,000</div>
         </div>
         """, unsafe_allow_html=True)
 
