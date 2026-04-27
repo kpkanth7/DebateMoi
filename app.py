@@ -562,17 +562,19 @@ with col_title:
     st.markdown('<div class="main-subtitle" style="text-align: center;">AI-Powered Debate Arena</div>', unsafe_allow_html=True)
 
 with col_download:
+    download_placeholder = st.empty()
     # PDF Export button (only after debate is complete)
     if st.session_state.debate_complete and st.session_state.debate_state:
-        pdf_bytes = generate_debate_pdf(st.session_state.debate_state, st.session_state.session_id)
-        st.markdown('<div style="margin-top: 1.5rem;"></div>', unsafe_allow_html=True)
-        st.download_button(
-            "📄 Download PDF",
-            data=pdf_bytes,
-            file_name=f"debatemoi_{st.session_state.session_id}.pdf",
-            mime="application/pdf",
-            use_container_width=True,
-        )
+        with download_placeholder.container():
+            st.markdown('<div style="margin-top: 1.5rem;"></div>', unsafe_allow_html=True)
+            pdf_bytes = generate_debate_pdf(st.session_state.debate_state, st.session_state.session_id)
+            st.download_button(
+                "📄 Download PDF",
+                data=pdf_bytes,
+                file_name=f"debatemoi_{st.session_state.session_id}.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -826,6 +828,19 @@ if start_clicked:
         # Mark complete
         st.session_state.debate_complete = True
         st.session_state.debate_running = False
+
+        # Populate top-right download button
+        if st.session_state.debate_state:
+            with download_placeholder.container():
+                st.markdown('<div style="margin-top: 1.5rem;"></div>', unsafe_allow_html=True)
+                pdf_bytes = generate_debate_pdf(st.session_state.debate_state, st.session_state.session_id)
+                st.download_button(
+                    "📄 Download PDF",
+                    data=pdf_bytes,
+                    file_name=f"debatemoi_{st.session_state.session_id}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                )
 
         # Show verdict
         if st.session_state.debate_state:

@@ -26,7 +26,7 @@ load_dotenv()
 # ---------------------------------------------------------------------------
 DEBATER_MODEL = "deepseek-v4-flash"
 JUDGE_MODEL = "gpt-4o-mini"
-DEBATER_MAX_TOKENS = 512    # Max tokens per debater
+DEBATER_MAX_TOKENS = 2048   # High API ceiling to prevent mid-sentence cutoffs
 JUDGE_MAX_TOKENS = 1024     # Max tokens for judge
 TOTAL_TOKEN_BUDGET = 6000   # Hard cap on output tokens
 
@@ -206,7 +206,9 @@ def pro_agent_node(state: DebateState) -> dict:
 
     response = llm.invoke(messages)
     content = response.content
-    tokens_used = response.usage_metadata.get("output_tokens", len(content.split()) * 2) if hasattr(response, 'usage_metadata') and response.usage_metadata else len(content.split()) * 2
+    usage = getattr(response, "usage_metadata", {}) or {}
+    meta_usage = getattr(response, "response_metadata", {}).get("token_usage", {})
+    tokens_used = usage.get("output_tokens") or meta_usage.get("completion_tokens") or (len(content.split()) * 2)
 
     new_argument = {
         "round": current_round,
@@ -256,7 +258,9 @@ def con_agent_node(state: DebateState) -> dict:
 
     response = llm.invoke(messages)
     content = response.content
-    tokens_used = response.usage_metadata.get("output_tokens", len(content.split()) * 2) if hasattr(response, 'usage_metadata') and response.usage_metadata else len(content.split()) * 2
+    usage = getattr(response, "usage_metadata", {}) or {}
+    meta_usage = getattr(response, "response_metadata", {}).get("token_usage", {})
+    tokens_used = usage.get("output_tokens") or meta_usage.get("completion_tokens") or (len(content.split()) * 2)
 
     new_argument = {
         "round": current_round,
