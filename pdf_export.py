@@ -34,13 +34,14 @@ class DebatePDF(FPDF):
         self.set_fill_color(10, 10, 15)
         self.rect(0, 0, 210, 30, 'F')
         # Title
-        self.set_font("Helvetica", "B", 20)
+        self.set_font("Helvetica", "B", 24)
         self.set_text_color(0, 212, 255)  # Cyan
-        self.cell(0, 15, "DebateMoi", align="C", new_x="LMARGIN", new_y="NEXT")
-        self.set_font("Helvetica", "", 10)
-        self.set_text_color(150, 150, 160)
-        self.cell(0, 8, "Multi-Agent Debate Transcript", align="C", new_x="LMARGIN", new_y="NEXT")
-        self.ln(5)
+        self.cell(0, 15, "D E B A T E M O I", align="C", new_x="LMARGIN", new_y="NEXT")
+        
+        self.set_font("Helvetica", "B", 9)
+        self.set_text_color(110, 110, 120)
+        self.cell(0, 4, "MULTI-AGENT DEBATE TRANSCRIPT", align="C", new_x="LMARGIN", new_y="NEXT")
+        self.ln(6)
 
     def footer(self):
         self.set_y(-15)
@@ -67,12 +68,18 @@ def generate_debate_pdf(state: dict, session_id: str = "") -> bytes:
     # -- Topic Section --
     pdf.set_fill_color(20, 20, 30)
     pdf.set_draw_color(0, 212, 255)
-    pdf.rect(10, pdf.get_y(), 190, 20, 'DF')
-    pdf.set_font("Helvetica", "B", 14)
+    pdf.set_line_width(0.5)
+    pdf.set_font("Helvetica", "B", 13)
     pdf.set_text_color(255, 255, 255)
-    pdf.set_xy(15, pdf.get_y() + 3)
-    pdf.cell(180, 14, f"Topic: {_clean_unicode(state.get('topic', 'N/A'))}", align="C")
-    pdf.ln(25)
+    
+    topic_text = _clean_unicode(state.get('topic', 'N/A'))
+    # Wrap topic in newlines to create natural vertical padding inside the cell
+    topic_padded = f"\nTopic: {topic_text}\n"
+    
+    pdf.set_x(10)
+    pdf.multi_cell(190, 8, topic_padded, border=1, fill=True, align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_line_width(0.2)
+    pdf.ln(12)
 
     # -- Metadata --
     pdf.set_font("Helvetica", "", 9)
