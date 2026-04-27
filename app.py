@@ -549,10 +549,25 @@ def show_verdict(state):
     )
 
 # ---------------------------------------------------------------------------
-# Main Title
+# Main Title & Top Bar
 # ---------------------------------------------------------------------------
-st.markdown('<div class="main-title">DebateMoi</div>', unsafe_allow_html=True)
-st.markdown('<div class="main-subtitle">AI-Powered Debate Arena</div>', unsafe_allow_html=True)
+col_title, col_download = st.columns([0.7, 0.3])
+with col_title:
+    st.markdown('<div class="main-title">DebateMoi</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-subtitle">AI-Powered Debate Arena</div>', unsafe_allow_html=True)
+
+with col_download:
+    # PDF Export button (only after debate is complete)
+    if st.session_state.debate_complete and st.session_state.debate_state:
+        pdf_bytes = generate_debate_pdf(st.session_state.debate_state, st.session_state.session_id)
+        st.markdown('<div style="margin-top: 1.5rem;"></div>', unsafe_allow_html=True)
+        st.download_button(
+            "📄 Download PDF",
+            data=pdf_bytes,
+            file_name=f"debatemoi_{st.session_state.session_id}.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -598,11 +613,12 @@ with st.sidebar:
     # Topic
     topic = st.text_area(
         "Debate Topic",
-        placeholder="Enter your debate topic here...\n\ne.g. 'AI will replace most white-collar jobs within 10 years' or 'Space exploration is a waste of taxpayer money'",
-        max_chars=200,
-        height=150,
-        help="Enter the topic to debate (max 200 characters)",
+        height=120,
+        placeholder="e.g., Should artificial intelligence research be paused globally?",
+        disabled=st.session_state.debate_running or st.session_state.debate_complete
     )
+    if st.session_state.debate_complete:
+        st.markdown('<div style="font-size: 0.75rem; color: #ff006e; margin-top: -10px; margin-bottom: 10px;">Topic locked. Refresh or enter a new Session ID to start a new debate.</div>', unsafe_allow_html=True)
 
     # Character counter
     if topic:
@@ -632,7 +648,7 @@ with st.sidebar:
     # Token usage display
     if st.session_state.debate_state:
         tokens = st.session_state.debate_state.get("total_tokens", 0)
-        pct = min(100, (tokens / 15000) * 100)
+        pct = min(100, (tokens / 7000) * 100)
         bar_color = "#00d4ff" if pct < 60 else "#ffd700" if pct < 85 else "#ff006e"
         st.markdown(f"""
         <div style="margin-top: 0.5rem;">
@@ -640,21 +656,11 @@ with st.sidebar:
             <div style="background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden; height: 6px;">
                 <div style="width: {pct}%; height: 100%; background: {bar_color}; border-radius: 4px; transition: width 0.5s;"></div>
             </div>
-            <div style="font-size: 0.7rem; color: #555570; margin-top: 2px; text-align: right;">{tokens:,} / 15,000</div>
+            <div style="font-size: 0.7rem; color: #555570; margin-top: 2px; text-align: right;">{tokens:,} / 7,000</div>
         </div>
         """, unsafe_allow_html=True)
 
-    # PDF Export button (only after debate is complete)
-    if st.session_state.debate_complete and st.session_state.debate_state:
-        st.markdown("---")
-        pdf_bytes = generate_debate_pdf(st.session_state.debate_state, session_id)
-        st.download_button(
-            "📄 Download PDF Transcript",
-            data=pdf_bytes,
-            file_name=f"debatemoi_{session_id}.pdf",
-            mime="application/pdf",
-            use_container_width=True,
-        )
+    # (PDF download moved to top right)
 
 
 # ---------------------------------------------------------------------------
@@ -753,56 +759,59 @@ if start_clicked:
 
         # Stream the debate
         current_pro = None  # Buffer for side-by-side rendering
-        with st.status("🎭 Debate in progress...", expanded=True) as status:
-            for event in graph.stream(initial_state, config=config, stream_mode="updates"):
-                for node_name, node_output in event.items():
-                    if node_name == "pro_agent":
-                        args = node_output.get("arguments_for", [])
-                        if args:
-                            latest = args[-1]
-                            current_pro = latest
-                            st.session_state.debate_events.append({
-                                "type": "pro", "round": latest["round"], "content": latest["content"]
-                            })
+        status_placeholder = st.empty()
+        status_placeholder.info("🎭 Debate in progress...")
+        
+        for event in graph.stream(initial_state, config=config, stream_mode="updates"):
+            for node_name, node_output in event.items():
+                if node_name == "pro_agent":
+                    args = node_output.get("arguments_for", [])
+                    if args:
+                        latest = args[-1]
+                        current_pro = latest
+                        st.session_state.debate_events.append({
+                            "type": "pro", "round": latest["round"], "content": latest["content"]
+                        })
 
-                    elif node_name == "con_agent":
-                        args = node_output.get("arguments_against", [])
-                        if args:
-                            latest = args[-1]
-                            st.session_state.debate_events.append({
-                                "type": "con", "round": latest["round"], "content": latest["content"]
-                            })
-                            # Render side-by-side now that we have both
-                            rnd = latest["round"]
-                            st.markdown(f'<div style="text-align:center;margin:1.2rem 0 0.6rem;font-family:Inter,sans-serif;font-weight:700;font-size:0.8rem;letter-spacing:2px;color:#555570;text-transform:uppercase;">— Round {rnd} —</div>', unsafe_allow_html=True)
-                            c1, c2 = st.columns(2)
-                            with c1:
-                                if current_pro:
-                                    st.markdown(render_card_html("pro", current_pro["round"], current_pro["content"]), unsafe_allow_html=True)
-                            with c2:
-                                st.markdown(render_card_html("con", rnd, latest["content"]), unsafe_allow_html=True)
-                            current_pro = None
+                elif node_name == "con_agent":
+                    args = node_output.get("arguments_against", [])
+                    if args:
+                        latest = args[-1]
+                        st.session_state.debate_events.append({
+                            "type": "con", "round": latest["round"], "content": latest["content"]
+                        })
+                        # Render side-by-side now that we have both
+                        rnd = latest["round"]
+                        st.markdown(f'<div style="text-align:center;margin:1.2rem 0 0.6rem;font-family:Inter,sans-serif;font-weight:700;font-size:0.8rem;letter-spacing:2px;color:#555570;text-transform:uppercase;">— Round {rnd} —</div>', unsafe_allow_html=True)
+                        c1, c2 = st.columns(2)
+                        with c1:
+                            if current_pro:
+                                st.markdown(render_card_html("pro", current_pro["round"], current_pro["content"]), unsafe_allow_html=True)
+                        with c2:
+                            st.markdown(render_card_html("con", rnd, latest["content"]), unsafe_allow_html=True)
+                        current_pro = None
 
-                    elif node_name == "judge":
-                        # Save the full state after judge runs
-                        st.session_state.debate_state = {
-                            **initial_state,
-                            **node_output,
-                            "arguments_for": [e for e in st.session_state.debate_events if e["type"] == "pro"],
-                            "arguments_against": [e for e in st.session_state.debate_events if e["type"] == "con"],
-                        }
+                elif node_name == "judge":
+                    status_placeholder.info("⚖️ The Judge is deliberating...")
+                    # Save the full state after judge runs
+                    st.session_state.debate_state = {
+                        **initial_state,
+                        **node_output,
+                        "arguments_for": [e for e in st.session_state.debate_events if e["type"] == "pro"],
+                        "arguments_against": [e for e in st.session_state.debate_events if e["type"] == "con"],
+                    }
 
-                    elif node_name == "budget_guard":
-                        if node_output.get("budget_exceeded"):
-                            st.warning("⚠️ Token budget exceeded — proceeding to judge's verdict early.")
+                elif node_name == "budget_guard":
+                    if node_output.get("budget_exceeded"):
+                        st.warning("⚠️ Token budget exceeded — proceeding to judge's verdict early.")
 
-                    # Update token count in state
-                    if "total_tokens" in node_output:
-                        if st.session_state.debate_state is None:
-                            st.session_state.debate_state = {**initial_state}
-                        st.session_state.debate_state["total_tokens"] = node_output["total_tokens"]
+                # Update token count in state
+                if "total_tokens" in node_output:
+                    if st.session_state.debate_state is None:
+                        st.session_state.debate_state = {**initial_state}
+                    st.session_state.debate_state["total_tokens"] = node_output["total_tokens"]
 
-            status.update(label="⚖️ The Judge is deliberating...", state="running")
+        status_placeholder.empty()
 
         # Get final state from the graph
         final_state = graph.get_state(config)

@@ -7,9 +7,24 @@ Color scheme: Cyan for Pro, Magenta for Con, Gold for Judge/Verdict.
 
 import io
 import json
+import re
 from datetime import datetime, timezone
 from fpdf import FPDF
 
+def _clean_unicode(text: str) -> str:
+    """Replace common unicode characters to prevent fpdf latin-1 encoding errors."""
+    if not text:
+        return ""
+    replacements = {
+        '’': "'", '‘': "'", '“': '"', '”': '"', '–': '-', '—': '-', '…': '...',
+        '•': '-', '\u2022': '-', '\u2018': "'", '\u2019': "'", '\u201c': '"', '\u201d': '"',
+        '\u2013': '-', '\u2014': '-', '\u2026': '...', '⚔️': '>', '🛡️': '<', '⚖️': '=',
+        '📝': '', '🔑': '', '🏆': '', '❌': '', '✅': '', '🎭': ''
+    }
+    for search, replace in replacements.items():
+        text = text.replace(search, replace)
+    # Strip any remaining non-latin1 characters
+    return text.encode('latin-1', 'ignore').decode('latin-1')
 
 class DebatePDF(FPDF):
     """Custom PDF with DebateMoi branding."""
@@ -56,7 +71,7 @@ def generate_debate_pdf(state: dict, session_id: str = "") -> bytes:
     pdf.set_font("Helvetica", "B", 14)
     pdf.set_text_color(255, 255, 255)
     pdf.set_xy(15, pdf.get_y() + 3)
-    pdf.cell(180, 14, f"Topic: {state.get('topic', 'N/A')}", align="C")
+    pdf.cell(180, 14, f"Topic: {_clean_unicode(state.get('topic', 'N/A'))}", align="C")
     pdf.ln(25)
 
     # -- Metadata --
@@ -111,11 +126,10 @@ def _render_argument(pdf: DebatePDF, label: str, content: str,
     pdf.set_text_color(*text_color)
     pdf.cell(0, 8, f"  {icon}  {label} AGENT", new_x="LMARGIN", new_y="NEXT")
 
-    # Content
     pdf.set_font("Helvetica", "", 10)
     pdf.set_text_color(60, 60, 70)
     pdf.set_x(15)
-    pdf.multi_cell(180, 5, content, new_x="LMARGIN", new_y="NEXT")
+    pdf.multi_cell(180, 5, _clean_unicode(content), new_x="LMARGIN", new_y="NEXT")
 
     y_end = pdf.get_y()
 
@@ -159,7 +173,7 @@ def _render_verdict(pdf: DebatePDF, state: dict):
     pdf.cell(0, 8, "Reasoning:", new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("Helvetica", "", 10)
     pdf.set_text_color(60, 60, 70)
-    pdf.multi_cell(0, 5, reasoning, new_x="LMARGIN", new_y="NEXT")
+    pdf.multi_cell(0, 5, _clean_unicode(reasoning), new_x="LMARGIN", new_y="NEXT")
     pdf.ln(8)
 
     # Detailed scores
@@ -228,7 +242,7 @@ def _render_scores(pdf: DebatePDF, scores: dict):
         pdf.set_text_color(60, 60, 70)
         for moment in key_moments:
             pdf.cell(5, 6, "")
-            pdf.multi_cell(0, 5, f"  * {moment}", new_x="LMARGIN", new_y="NEXT")
+            pdf.multi_cell(0, 5, f"  * {_clean_unicode(moment)}", new_x="LMARGIN", new_y="NEXT")
         pdf.ln(4)
 
     # Deciding factor
@@ -239,4 +253,4 @@ def _render_scores(pdf: DebatePDF, scores: dict):
         pdf.cell(0, 8, "Deciding Factor:", new_x="LMARGIN", new_y="NEXT")
         pdf.set_font("Helvetica", "I", 10)
         pdf.set_text_color(80, 80, 90)
-        pdf.multi_cell(0, 5, deciding, new_x="LMARGIN", new_y="NEXT")
+        pdf.multi_cell(0, 5, _clean_unicode(deciding), new_x="LMARGIN", new_y="NEXT")
