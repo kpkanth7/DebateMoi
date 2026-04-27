@@ -24,7 +24,7 @@ load_dotenv()
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-DEBATER_MODEL = "deepseek-chat" # DeepSeek V4 / V3
+DEBATER_MODEL = "deepseek-v4-flash"
 JUDGE_MODEL = "gpt-4o-mini"
 DEBATER_MAX_TOKENS = 4096   # High ceiling — thinking_budget=0 means all tokens go to output
 JUDGE_MAX_TOKENS = 1500
