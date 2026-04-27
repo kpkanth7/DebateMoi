@@ -1,5 +1,7 @@
 # DebateMoi 🎭
 
+🚀 **Live Demo:** [DebateMoi.onrender.com](https://Debatemoi.onrender.com)
+
 I built **DebateMoi** because I wanted to see what happens when you pit two AI agents against each other in a structured, high-stakes debate — and have a third AI judge declare the winner with detailed scoring.
 
 It's a multi-agent system where a **Pro agent** and **Con agent** go head-to-head for 3 rounds on any topic you throw at them. Each agent has a distinct persona — one's an Oxford-trained rhetorician, the other's a master of contrarian philosophy. After the final round, an impartial **Judge agent** evaluates the entire transcript across 5 categories and delivers a dramatic verdict.
@@ -40,7 +42,7 @@ The whole thing runs on a cinematic dark-mode UI that streams the debate in real
 
 ```bash
 # Clone the repo
-git clone https://github.com/yourusername/DebateMoi.git
+git clone https://github.com/kpkanth7/DebateMoi.git
 cd DebateMoi
 
 # Install dependencies with uv
@@ -77,7 +79,7 @@ START → Pro Agent → Con Agent → Increment Round → Budget Guard → Route
 
 - **Pro Agent**: Argues IN FAVOR — uses Claim → Evidence → Impact structure
 - **Con Agent**: Argues AGAINST — dismantles opponent's logic, builds independent counter-stance
-- **Budget Guard**: Monitors total token usage (15,000 cap) — forces early verdict if exceeded
+- **Budget Guard**: Monitors total token usage (8,000 cap) — forces early verdict if exceeded
 - **Judge Agent**: Evaluates across 5 categories, outputs structured JSON with scores and key moments
 
 ## Cost Control
@@ -85,8 +87,8 @@ START → Pro Agent → Con Agent → Increment Round → Budget Guard → Route
 This project is built to be deployment-friendly without burning through your wallet:
 
 - **Cheap models by default**: DeepSeek V4 for debaters
-- **Token caps**: 4096 tokens/turn for debaters, 1,500 for the judge
-- **Session budget**: 15,000 total tokens per debate
+- **Token caps**: 1024 tokens/turn for debaters, 1024 for the judge
+- **Session budget**: 8,000 total tokens per debate
 - **Rate limiting**: 3 debates/day per IP address
 - **Input sanitization**: Topics capped at 200 characters
 
