@@ -507,25 +507,23 @@ def _get_rate_limiter() -> "RateLimiter":
     return RateLimiter()
 
 
-_IP_RE = re.compile(r"^(\d{1,3}\.){3}\d{1,3}$")
-
-
 def get_user_identifier() -> str:
     """
     Return a stable per-user identifier for rate limiting.
-    Priority: CF-Connecting-IP → X-Real-Ip → X-Forwarded-For → Streamlit session ID.
-    The session-ID fallback is per browser tab, which is fine for a demo.
+    Priority: CF-Connecting-IP → X-Real-Ip → X-Forwarded-For (first IP) → Streamlit session ID.
+    Accepts IPv4 and IPv6 — no format filtering so Cloudflare IPv6 addresses work.
     """
     try:
         headers = st.context.headers
         for header in ["CF-Connecting-IP", "X-Real-Ip", "X-Forwarded-For"]:
-            raw = headers.get(header, "")
-            candidate = raw.split(",")[0].strip()
-            if candidate and _IP_RE.match(candidate):
-                return candidate
+            raw = headers.get(header, "").strip()
+            if raw:
+                candidate = raw.split(",")[0].strip()
+                if candidate:
+                    return candidate
     except Exception:
         pass
-    # Fallback: Streamlit's internal session ID (unique per browser tab)
+    # Fallback: Streamlit session ID (unique per browser tab, not per user)
     try:
         from streamlit.runtime.scriptrunner import get_script_run_ctx
         ctx = get_script_run_ctx()

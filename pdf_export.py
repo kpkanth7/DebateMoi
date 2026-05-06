@@ -1,56 +1,72 @@
 """
-DebateMoi — PDF Export (Light Theme)
-======================================
-White-paper document with strong contrast and colored accents.
-Layout: cover → debate rounds (Pro / Con) → verdict & score table.
+DebateMoi — PDF Export
+=======================
+Clean, professional white-paper layout.
+Typography-first design: strong hierarchy, consistent grid, restrained color.
 """
 
 import json
 import re
-import textwrap
 from datetime import datetime, timezone
 from fpdf import FPDF
 
 # ---------------------------------------------------------------------------
-# Palette (print-safe, high-contrast on white paper)
+# Design tokens
 # ---------------------------------------------------------------------------
-WHITE       = (255, 255, 255)
-OFF_WHITE   = (248, 249, 252)
-LIGHT_GRAY  = (240, 242, 247)
-MID_GRAY    = (180, 182, 192)
-DARK        = (22,  24,  38)
-BODY        = (55,  57,  75)
-MUTED       = (110, 112, 130)
+# All colors are (R, G, B) tuples
 
-PRO_DARK    = (0,   130, 170)   # readable cyan on white
-PRO_LIGHT   = (230, 247, 252)
-CON_DARK    = (185, 0,   75)    # readable magenta on white
-CON_LIGHT   = (253, 230, 242)
-GOLD_DARK   = (160, 120, 0)
-GOLD_LIGHT  = (255, 249, 220)
+# Neutrals
+INK        = (20,  22,  38)   # headings, labels
+BODY       = (50,  52,  70)   # body text
+MUTED      = (120, 122, 140)  # captions, metadata
+RULE       = (210, 212, 220)  # horizontal rules
+ROW_ALT    = (248, 249, 252)  # alternating table row
+WHITE      = (255, 255, 255)
+NEAR_WHITE = (252, 253, 255)
+
+# Accents (print-safe: saturated enough on white to read, not harsh)
+PRO   = (0,   130, 170)  # teal-blue
+CON   = (180,  0,  70)   # deep red-magenta
+GOLD  = (150, 110,   0)  # amber-gold
+
+# Header band
+BAND_BG    = (18,  20,  36)
+BAND_PRO   = (0,  140, 180)
+BAND_CON   = (190,  0,  75)
+
+# Margin & grid
+L = 18   # left margin
+R = 18   # right margin
+TW = 210 - L - R  # text width = 174 mm
+
 
 # ---------------------------------------------------------------------------
 # Unicode sanitiser
 # ---------------------------------------------------------------------------
-_UNICODE_MAP = {
+_SUBS = {
     "‘": "'", "’": "'", "“": '"', "”": '"',
     "–": "-", "—": "-", "…": "...", "•": "*",
-    "°": "deg", "®": "(R)", "©": "(c)", "™": "(TM)",
+    "®": "(R)", "©": "(c)", "™": "(TM)",
     "é": "e", "è": "e", "ê": "e", "à": "a",
     "â": "a", "ô": "o", "û": "u", "ü": "u",
-    "ç": "c",
-    # emoji
-    "⚔️": ">>", "\U0001f6e1️": "<<", "⚖️": "=",
-    "⚠️": "!", "✅": "[OK]", "❌": "[X]",
+    "ç": "c", "°": "deg",
 }
+_EMOJI = re.compile(
+    "[\U00002600-\U000027BF\U0001F300-\U0001F9FF\U0000FE0F]+"
+)
 
 def _s(text: str) -> str:
-    """Sanitise unicode for latin-1 PDF rendering."""
+    """Sanitise text for latin-1 PDF rendering."""
     if not text:
         return ""
-    for src, dst in _UNICODE_MAP.items():
+    for src, dst in _SUBS.items():
         text = text.replace(src, dst)
+    text = _EMOJI.sub("", text)
     return text.encode("latin-1", "ignore").decode("latin-1")
+
+
+def _strip_md(text: str) -> str:
+    return re.sub(r"\*+", "", text)
 
 
 # ---------------------------------------------------------------------------
@@ -60,222 +76,242 @@ class DebatePDF(FPDF):
 
     def __init__(self):
         super().__init__()
-        self.set_margins(left=18, top=18, right=18)
+        self.set_margins(L, 20, R)
         self.set_auto_page_break(auto=True, margin=22)
+        self._in_cover = False
 
     def header(self):
-        if self.page_no() == 1:
+        if self._in_cover:
             return
-        # Thin top rule
-        self.set_draw_color(*MID_GRAY)
+        # Thin top rule + running header
+        self.set_draw_color(*RULE)
         self.set_line_width(0.3)
-        self.line(18, 12, 192, 12)
-        self.set_font("Helvetica", "B", 7)
+        self.line(L, 14, 210 - R, 14)
+        self.set_font("Helvetica", "", 7)
         self.set_text_color(*MUTED)
-        self.set_xy(18, 6)
-        self.cell(0, 6, "DEBATEMOI  //  DEBATE TRANSCRIPT", align="L")
-        self.set_xy(18, 6)
+        self.set_xy(L, 7)
+        self.cell(0, 6, "DEBATEMOI  —  DEBATE TRANSCRIPT", align="L")
+        self.set_xy(L, 7)
         self.cell(0, 6, f"Page {self.page_no()}", align="R")
-        self.ln(10)
+        self.set_y(20)
 
     def footer(self):
-        if self.page_no() == 1:
+        if self._in_cover:
             return
-        self.set_y(-14)
-        self.set_draw_color(*LIGHT_GRAY)
+        self.set_y(-13)
+        self.set_draw_color(*RULE)
         self.set_line_width(0.3)
-        self.line(18, self.get_y(), 192, self.get_y())
+        self.line(L, self.get_y(), 210 - R, self.get_y())
         self.set_font("Helvetica", "", 7)
         self.set_text_color(*MUTED)
         self.cell(0, 8, "debatemoi.streamlit.app", align="C")
 
+    # ------------------------------------------------------------------ utils
+    def _rule(self, color=RULE, width=0.3):
+        self.set_draw_color(*color)
+        self.set_line_width(width)
+        self.line(L, self.get_y(), 210 - R, self.get_y())
+        self.ln(4)
+
+    def _section_label(self, text: str):
+        """Small all-caps muted label above a section."""
+        self.set_font("Helvetica", "B", 7)
+        self.set_text_color(*MUTED)
+        self.cell(0, 5, text, new_x="LMARGIN", new_y="NEXT")
+        self.ln(1)
+
+    def _body(self, text: str, indent: int = 0):
+        self.set_x(L + indent)
+        self.set_font("Helvetica", "", 9.5)
+        self.set_text_color(*BODY)
+        self.multi_cell(TW - indent, 5.5, text, new_x="LMARGIN", new_y="NEXT")
+
     # ------------------------------------------------------------------ cover
     def cover_page(self, topic: str, session_id: str, rounds: int, winner: str = ""):
+        self._in_cover = True
         self.add_page()
 
-        # Dark header band
-        self.set_fill_color(18, 20, 35)
-        self.rect(0, 0, 210, 65, "F")
+        # ── Dark header band ──────────────────────────────────────────────
+        self.set_fill_color(*BAND_BG)
+        self.rect(0, 0, 210, 60, "F")
 
-        # Cyan left stripe + magenta right stripe
-        self.set_fill_color(*PRO_DARK)
-        self.rect(0, 0, 4, 65, "F")
-        self.set_fill_color(*CON_DARK)
-        self.rect(206, 0, 4, 65, "F")
+        # Side stripes (4 mm wide)
+        self.set_fill_color(*BAND_PRO)
+        self.rect(0, 0, 4, 60, "F")
+        self.set_fill_color(*BAND_CON)
+        self.rect(206, 0, 4, 60, "F")
 
         # Brand name
-        self.set_font("Helvetica", "B", 32)
+        self.set_font("Helvetica", "B", 30)
         self.set_text_color(255, 255, 255)
-        self.set_xy(0, 16)
+        self.set_xy(0, 14)
         self.cell(210, 14, "DEBATEMOI", align="C", new_x="LMARGIN", new_y="NEXT")
 
         # Tagline
         self.set_font("Helvetica", "", 8)
-        self.set_text_color(*MID_GRAY)
-        self.cell(210, 6, "MULTI-AGENT  AI  DEBATE  TRANSCRIPT", align="C",
+        self.set_text_color(160, 162, 180)
+        self.cell(210, 7, "MULTI-AGENT  AI  DEBATE  TRANSCRIPT", align="C",
                   new_x="LMARGIN", new_y="NEXT")
 
-        # White body
+        # ── White body ────────────────────────────────────────────────────
         self.set_fill_color(*WHITE)
-        self.rect(0, 65, 210, 232, "F")
+        self.rect(0, 60, 210, 237, "F")
 
-        # Topic box
-        self.set_y(78)
+        # ── Topic ────────────────────────────────────────────────────────
+        self.set_y(72)
+        self._section_label("DEBATE TOPIC")
+
+        # Box: left-border only (clean, no background fill)
         topic_clean = _s(topic)
-        wrapped = textwrap.fill(topic_clean, width=60)
-        lines = wrapped.count("\n") + 1
-        box_h = max(28, lines * 8 + 20)
-
-        self.set_fill_color(*OFF_WHITE)
-        self.set_draw_color(*PRO_DARK)
-        self.set_line_width(1.5)
-        self.rect(18, self.get_y(), 174, box_h, "DF")
-        self.set_line_width(0.2)
-
-        self.set_font("Helvetica", "B", 7)
-        self.set_text_color(*PRO_DARK)
-        self.set_x(18)
-        self.cell(174, 8, "DEBATE TOPIC", align="C", new_x="LMARGIN", new_y="NEXT")
-
+        y0 = self.get_y()
+        self.set_x(L + 6)
         self.set_font("Helvetica", "B", 13)
-        self.set_text_color(*DARK)
-        self.set_x(22)
-        self.multi_cell(170, 8, topic_clean, align="C", new_x="LMARGIN", new_y="NEXT")
+        self.set_text_color(*INK)
+        self.multi_cell(TW - 6, 7.5, topic_clean, new_x="LMARGIN", new_y="NEXT")
+        y1 = self.get_y()
 
-        self.ln(12)
+        # Left accent bar
+        self.set_draw_color(*PRO)
+        self.set_line_width(3)
+        self.line(L, y0, L, y1)
+        self.set_line_width(0.2)
+        self.ln(10)
 
-        # Stats row — 3 equal boxes
-        stats = [
-            ("ROUNDS", str(rounds)),
-            ("SESSION", session_id[:8] if session_id else "—"),
-            ("GENERATED", datetime.now(timezone.utc).strftime("%d %b %Y")),
+        # ── Metadata row ─────────────────────────────────────────────────
+        self._rule()
+        meta_y = self.get_y()
+
+        cols = [
+            ("ROUNDS",    str(rounds)),
+            ("SESSION",   (session_id or "—")[:8]),
+            ("DATE",      datetime.now(timezone.utc).strftime("%d %b %Y")),
+            ("TIME (UTC)",datetime.now(timezone.utc).strftime("%H:%M")),
         ]
-        col_w, gap = 54, 3
-        start_x = 18
-        y_stats = self.get_y()
-
-        for i, (label, val) in enumerate(stats):
-            cx = start_x + i * (col_w + gap)
-            self.set_fill_color(*LIGHT_GRAY)
-            self.set_draw_color(*MID_GRAY)
-            self.set_line_width(0.2)
-            self.rect(cx, y_stats, col_w, 24, "DF")
-
+        col_w = TW / len(cols)
+        for i, (label, val) in enumerate(cols):
+            cx = L + i * col_w
             self.set_font("Helvetica", "", 7)
             self.set_text_color(*MUTED)
-            self.set_xy(cx, y_stats + 5)
-            self.cell(col_w, 5, label, align="C", new_x="LMARGIN", new_y="NEXT")
-
+            self.set_xy(cx, meta_y)
+            self.cell(col_w, 5, label, align="C")
             self.set_font("Helvetica", "B", 12)
-            self.set_text_color(*DARK)
-            self.set_x(cx)
+            self.set_text_color(*INK)
+            self.set_xy(cx, meta_y + 5)
             self.cell(col_w, 8, _s(val), align="C")
 
-        self.ln(30)
+        self.set_y(meta_y + 16)
+        self._rule()
+        self.ln(6)
 
-        # Winner ribbon (if available)
-        if winner and winner != "Unknown":
-            w_fill = PRO_LIGHT if winner == "Pro" else CON_LIGHT
-            w_text = PRO_DARK if winner == "Pro" else CON_DARK
-            self.set_fill_color(*w_fill)
-            self.set_draw_color(*w_text)
-            self.set_line_width(0.8)
-            y_rib = self.get_y()
-            self.rect(18, y_rib, 174, 18, "DF")
+        # ── Winner ribbon (if available) ──────────────────────────────────
+        if winner and winner not in ("", "Unknown"):
+            w_color = PRO if winner == "Pro" else CON
+            self._section_label("RESULT")
+            wy = self.get_y()
+            self.set_x(L)
+            self.set_font("Helvetica", "B", 14)
+            self.set_text_color(*w_color)
+            arrow = ">>" if winner == "Pro" else "<<"
+            self.cell(TW, 10,
+                      f"{arrow}  {winner.upper()} AGENT WINS  {arrow}",
+                      align="C", new_x="LMARGIN", new_y="NEXT")
+
+            # Underline in accent color
+            self.set_draw_color(*w_color)
+            self.set_line_width(1.5)
+            self.line(L + 30, self.get_y(), 210 - R - 30, self.get_y())
             self.set_line_width(0.2)
-            self.set_font("Helvetica", "B", 10)
-            self.set_text_color(*w_text)
-            self.set_xy(18, y_rib + 4)
-            icon = ">>" if winner == "Pro" else "<<"
-            self.cell(174, 10,
-                      f"{icon}  {winner.upper()} AGENT WINS  {icon}",
-                      align="C")
-            self.ln(26)
+            self.ln(14)
 
-        # Bottom accent bar
-        self.set_fill_color(18, 20, 35)
-        self.rect(0, 285, 210, 12, "F")
-        self.set_fill_color(*PRO_DARK)
+        # ── Bottom accent bar ─────────────────────────────────────────────
+        self.set_fill_color(*BAND_PRO)
         self.rect(0, 285, 105, 12, "F")
-        self.set_fill_color(*CON_DARK)
+        self.set_fill_color(*BAND_CON)
         self.rect(105, 285, 105, 12, "F")
+
+        self._in_cover = False
 
 
 # ---------------------------------------------------------------------------
 # Argument block
 # ---------------------------------------------------------------------------
-def _render_argument(pdf: DebatePDF, label: str, content: str,
-                     accent_dark: tuple, accent_light: tuple):
-    """One argument card: tinted background, left border, readable text."""
-
-    # Agent header bar
-    pdf.set_fill_color(*accent_light)
-    pdf.set_x(18)
-    icon = ">>" if label == "PRO" else "<<"
-    pdf.set_font("Helvetica", "B", 9)
-    pdf.set_text_color(*accent_dark)
-    pdf.cell(174, 9, f"  {icon}  {label} AGENT", fill=True,
+def _render_argument(pdf: DebatePDF, label: str, content: str, accent: tuple):
+    """
+    Render one agent argument.
+    Structure:
+      [LABEL BAR]    — 8pt, accent-colored text on NEAR_WHITE strip
+      [text block]   — body text, 2pt left accent border drawn after
+    """
+    # Label strip
+    pdf.set_fill_color(*NEAR_WHITE)
+    pdf.set_x(L)
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.set_text_color(*accent)
+    arrow = ">>" if label == "PRO" else "<<"
+    pdf.cell(TW, 8, f"  {arrow}  {label} AGENT", fill=True,
              new_x="LMARGIN", new_y="NEXT")
 
-    # Content area: white fill, left colored border
+    # Thin rule below label
+    pdf.set_draw_color(*accent)
+    pdf.set_line_width(0.5)
+    pdf.line(L, pdf.get_y(), L + TW, pdf.get_y())
+    pdf.set_line_width(0.2)
+    pdf.ln(4)
+
+    # Content — render line by line, track start Y for left border
     y_start = pdf.get_y()
-    pdf.set_fill_color(*WHITE)
-    pdf.set_x(18)
 
-    for raw_line in _s(content).split("\n"):
-        line = raw_line.strip()
+    for raw in _s(content).split("\n"):
+        line = raw.strip()
         if not line:
-            pdf.ln(3)
+            pdf.ln(2.5)
             continue
 
-        # Full-line heading: **text** alone on line
+        # Full-line heading **text**
         if re.match(r"^\*\*[^*]+\*\*$", line):
-            heading = re.sub(r"\*+", "", line).strip()
+            heading = re.sub(r"\*+", "", line)
             pdf.ln(2)
-            pdf.set_x(22)
+            pdf.set_x(L + 4)
             pdf.set_font("Helvetica", "B", 10)
-            pdf.set_text_color(*accent_dark)
-            pdf.multi_cell(166, 5.5, heading, new_x="LMARGIN", new_y="NEXT")
-            pdf.set_font("Helvetica", "", 9.5)
-            pdf.set_text_color(*BODY)
+            pdf.set_text_color(*accent)
+            pdf.multi_cell(TW - 4, 5.5, heading, new_x="LMARGIN", new_y="NEXT")
             continue
 
-        # Inline bold label: **Key**: rest
+        # Inline label **Key**: rest
         m = re.match(r"^\*\*(.+?)\*\*[:\s]+(.*)", line)
         if m:
-            key_text = m.group(1).strip()
-            rest = _s(m.group(2).strip())
-            pdf.set_x(22)
-            pdf.set_font("Helvetica", "B", 9.5)
-            pdf.set_text_color(*DARK)
-            pdf.cell(0, 5.5, key_text + ":", new_x="LMARGIN", new_y="NEXT")
+            key  = _strip_md(m.group(1))
+            rest = _s(m.group(2))
+            pdf.set_x(L + 4)
+            pdf.set_font("Helvetica", "B", 9)
+            pdf.set_text_color(*INK)
+            pdf.cell(0, 5.5, key + ":", new_x="LMARGIN", new_y="NEXT")
             if rest:
-                pdf.set_x(26)
+                pdf.set_x(L + 8)
                 pdf.set_font("Helvetica", "", 9.5)
                 pdf.set_text_color(*BODY)
-                pdf.multi_cell(162, 5.5, rest, new_x="LMARGIN", new_y="NEXT")
+                pdf.multi_cell(TW - 8, 5.5, rest, new_x="LMARGIN", new_y="NEXT")
             continue
 
         # Normal text
-        clean = re.sub(r"\*+", "", line)
-        pdf.set_x(22)
+        pdf.set_x(L + 4)
         pdf.set_font("Helvetica", "", 9.5)
         pdf.set_text_color(*BODY)
-        pdf.multi_cell(166, 5.5, clean, new_x="LMARGIN", new_y="NEXT")
+        pdf.multi_cell(TW - 4, 5.5, _strip_md(line), new_x="LMARGIN", new_y="NEXT")
 
     y_end = pdf.get_y()
-    pdf.ln(3)
 
-    # Left accent border
-    pdf.set_draw_color(*accent_dark)
-    pdf.set_line_width(2.5)
-    pdf.line(18, y_start, 18, y_end)
+    # Left accent border (drawn after so height is exact)
+    pdf.set_draw_color(*accent)
+    pdf.set_line_width(2)
+    pdf.line(L, y_start, L, y_end)
     pdf.set_line_width(0.2)
 
     # Bottom separator
-    pdf.set_draw_color(*LIGHT_GRAY)
+    pdf.ln(2)
+    pdf.set_draw_color(*RULE)
     pdf.set_line_width(0.3)
-    pdf.line(18, pdf.get_y(), 192, pdf.get_y())
+    pdf.line(L, pdf.get_y(), L + TW, pdf.get_y())
     pdf.ln(6)
 
 
@@ -285,97 +321,77 @@ def _render_argument(pdf: DebatePDF, label: str, content: str,
 def _render_verdict(pdf: DebatePDF, state: dict):
     pdf.add_page()
 
-    winner = state.get("winner", "Unknown")
+    winner   = state.get("winner", "Unknown")
     reasoning = _s(state.get("reasoning", "No reasoning provided."))
 
-    # Section heading
-    pdf.set_fill_color(*DARK)
-    pdf.set_x(18)
-    pdf.set_font("Helvetica", "B", 11)
+    # Section heading bar
+    pdf.set_fill_color(*BAND_BG)
+    pdf.set_x(L)
+    pdf.set_font("Helvetica", "B", 10)
     pdf.set_text_color(*WHITE)
-    pdf.cell(174, 12, "  JUDGE'S VERDICT", fill=True,
-             new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(TW, 11, "  JUDGE'S VERDICT", fill=True, new_x="LMARGIN", new_y="NEXT")
     pdf.ln(8)
 
-    # Winner banner
+    # Winner line
     if winner and winner != "Unknown":
-        w_fill = PRO_LIGHT if winner == "Pro" else CON_LIGHT
-        w_dark = PRO_DARK if winner == "Pro" else CON_DARK
-        pdf.set_fill_color(*w_fill)
-        pdf.set_draw_color(*w_dark)
+        w_color = PRO if winner == "Pro" else CON
+        pdf.set_font("Helvetica", "B", 18)
+        pdf.set_text_color(*w_color)
+        arrow = ">>" if winner == "Pro" else "<<"
+        pdf.cell(TW, 10, f"{arrow}  {winner.upper()} AGENT WINS  {arrow}",
+                 align="C", new_x="LMARGIN", new_y="NEXT")
+
+        pdf.set_draw_color(*w_color)
         pdf.set_line_width(1.5)
-        y_b = pdf.get_y()
-        pdf.rect(18, y_b, 174, 20, "DF")
+        pdf.line(L + 20, pdf.get_y() + 1, L + TW - 20, pdf.get_y() + 1)
         pdf.set_line_width(0.2)
-        pdf.set_font("Helvetica", "B", 16)
-        pdf.set_text_color(*w_dark)
-        pdf.set_xy(18, y_b + 3)
-        icon = ">>" if winner == "Pro" else "<<"
-        pdf.cell(174, 14, f"{icon}  {winner.upper()} AGENT WINS  {icon}", align="C")
-        pdf.ln(26)
+        pdf.ln(10)
 
-    # Reasoning box
-    pdf.set_font("Helvetica", "B", 8)
-    pdf.set_text_color(*MUTED)
-    pdf.set_x(18)
-    pdf.cell(0, 6, "REASONING", new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(2)
-
-    wrapped = textwrap.fill(reasoning, width=88)
-    n_lines = wrapped.count("\n") + 1
-    box_h = max(18, n_lines * 5.5 + 12)
-
-    pdf.set_fill_color(*OFF_WHITE)
-    pdf.set_draw_color(*LIGHT_GRAY)
-    pdf.set_line_width(0.3)
-    pdf.rect(18, pdf.get_y(), 174, box_h, "DF")
-
-    # Gold left accent
-    pdf.set_draw_color(*GOLD_DARK)
-    pdf.set_line_width(2.5)
+    # Reasoning
+    pdf._section_label("REASONING")
     y0 = pdf.get_y()
-    pdf.set_x(22)
+    pdf.set_x(L + 4)
     pdf.set_font("Helvetica", "", 9.5)
     pdf.set_text_color(*BODY)
-    pdf.multi_cell(166, 5.5, reasoning, new_x="LMARGIN", new_y="NEXT")
-    pdf.line(18, y0, 18, pdf.get_y())
+    pdf.multi_cell(TW - 4, 5.5, reasoning, new_x="LMARGIN", new_y="NEXT")
+    y1 = pdf.get_y()
+
+    # Gold left border on reasoning
+    pdf.set_draw_color(*GOLD)
+    pdf.set_line_width(2)
+    pdf.line(L, y0, L, y1)
     pdf.set_line_width(0.2)
     pdf.ln(10)
 
-    # Score table
-    judge_scores_str = state.get("judge_scores", "")
-    if judge_scores_str:
-        try:
-            scores = json.loads(judge_scores_str)
-            if not scores.get("parse_error"):
-                _render_scores(pdf, scores)
-        except (json.JSONDecodeError, ValueError):
-            pass
+    # Scores
+    try:
+        scores = json.loads(state.get("judge_scores", "{}"))
+        if scores and not scores.get("parse_error"):
+            _render_scores(pdf, scores)
+    except (json.JSONDecodeError, ValueError):
+        pass
 
 
 def _render_scores(pdf: DebatePDF, scores: dict):
     pro_s = scores.get("pro_scores", {})
     con_s = scores.get("con_scores", {})
 
-    # Section heading
-    pdf.set_font("Helvetica", "B", 8)
-    pdf.set_text_color(*MUTED)
-    pdf.set_x(18)
-    pdf.cell(0, 6, "DETAILED SCORES", new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(2)
+    # ── Score table ──────────────────────────────────────────────────────
+    pdf._section_label("SCORES")
 
-    # Table header
-    c_cat, c_pro, c_con = 100, 37, 37
-    pdf.set_fill_color(*DARK)
-    pdf.set_x(18)
+    # Column widths (must sum to TW = 174)
+    c0, c1, c2 = 110, 32, 32
+
+    # Header row
+    pdf.set_fill_color(*BAND_BG)
+    pdf.set_x(L)
     pdf.set_font("Helvetica", "B", 8)
     pdf.set_text_color(*WHITE)
-    pdf.cell(c_cat, 8, "  CATEGORY", fill=True)
-    pdf.set_text_color(160, 230, 245)
-    pdf.cell(c_pro, 8, "PRO", align="C", fill=True)
-    pdf.set_text_color(255, 180, 210)
-    pdf.cell(c_con, 8, "CON", align="C", fill=True,
-             new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(c0, 8, "  CATEGORY", fill=True)
+    pdf.set_text_color(180, 230, 245)
+    pdf.cell(c1, 8, "PRO", align="C", fill=True)
+    pdf.set_text_color(255, 180, 200)
+    pdf.cell(c2, 8, "CON", align="C", fill=True, new_x="LMARGIN", new_y="NEXT")
 
     categories = [
         ("logic",       "Logical Consistency"),
@@ -386,86 +402,75 @@ def _render_scores(pdf: DebatePDF, scores: dict):
     ]
 
     for i, (key, label) in enumerate(categories):
-        row_fill = OFF_WHITE if i % 2 == 0 else WHITE
-        pdf.set_fill_color(*row_fill)
-        pdf.set_draw_color(*LIGHT_GRAY)
+        fill = ROW_ALT if i % 2 == 0 else WHITE
+        pdf.set_fill_color(*fill)
+        pdf.set_draw_color(*RULE)
         pdf.set_line_width(0.2)
-        pdf.set_x(18)
+        pdf.set_x(L)
 
         pdf.set_font("Helvetica", "", 9)
         pdf.set_text_color(*BODY)
-        pdf.cell(c_cat, 8, f"  {label}", fill=True, border="B")
+        pdf.cell(c0, 7.5, f"  {label}", fill=True, border="B")
 
-        pv = pro_s.get(key, 0)
-        cv = con_s.get(key, 0)
-
+        pv, cv = pro_s.get(key, "—"), con_s.get(key, "—")
         pdf.set_font("Helvetica", "B", 9)
-        pdf.set_text_color(*PRO_DARK)
-        pdf.cell(c_pro, 8, str(pv), align="C", fill=True, border="B")
-        pdf.set_text_color(*CON_DARK)
-        pdf.cell(c_con, 8, str(cv), align="C", fill=True, border="B",
+        pdf.set_text_color(*PRO)
+        pdf.cell(c1, 7.5, str(pv), align="C", fill=True, border="B")
+        pdf.set_text_color(*CON)
+        pdf.cell(c2, 7.5, str(cv), align="C", fill=True, border="B",
                  new_x="LMARGIN", new_y="NEXT")
 
     # Totals row
-    pdf.set_fill_color(*DARK)
-    pdf.set_x(18)
+    pdf.set_fill_color(*INK)
+    pdf.set_x(L)
     pdf.set_font("Helvetica", "B", 9)
     pdf.set_text_color(*WHITE)
-    pdf.cell(c_cat, 9, "  TOTAL", fill=True)
-    pdf.set_text_color(160, 230, 245)
-    pdf.cell(c_pro, 9, str(scores.get("pro_total", "—")), align="C", fill=True)
-    pdf.set_text_color(255, 180, 210)
-    pdf.cell(c_con, 9, str(scores.get("con_total", "—")), align="C", fill=True,
+    pdf.cell(c0, 8.5, "  TOTAL", fill=True)
+    pdf.set_text_color(180, 230, 245)
+    pdf.cell(c1, 8.5, str(scores.get("pro_total", "—")), align="C", fill=True)
+    pdf.set_text_color(255, 180, 200)
+    pdf.cell(c2, 8.5, str(scores.get("con_total", "—")), align="C", fill=True,
              new_x="LMARGIN", new_y="NEXT")
     pdf.ln(10)
 
-    # Key moments
-    key_moments = scores.get("key_moments", [])
-    if key_moments:
-        pdf.set_font("Helvetica", "B", 8)
-        pdf.set_text_color(*MUTED)
-        pdf.set_x(18)
-        pdf.cell(0, 6, "KEY MOMENTS", new_x="LMARGIN", new_y="NEXT")
-        pdf.ln(2)
-        for i, moment in enumerate(key_moments, 1):
-            pdf.set_x(18)
+    # ── Key moments ──────────────────────────────────────────────────────
+    moments = scores.get("key_moments", [])
+    if moments:
+        pdf._section_label("KEY MOMENTS")
+        for i, moment in enumerate(moments, 1):
+            pdf.set_x(L)
             pdf.set_font("Helvetica", "B", 9)
-            pdf.set_text_color(*GOLD_DARK)
-            pdf.cell(8, 5.5, f"{i}.")
-            pdf.set_font("Helvetica", "", 9)
+            pdf.set_text_color(*GOLD)
+            pdf.cell(7, 5.5, f"{i}.")
+            pdf.set_font("Helvetica", "", 9.5)
             pdf.set_text_color(*BODY)
-            pdf.multi_cell(160, 5.5, _s(moment), new_x="LMARGIN", new_y="NEXT")
+            pdf.multi_cell(TW - 7, 5.5, _s(moment), new_x="LMARGIN", new_y="NEXT")
         pdf.ln(6)
 
-    # Deciding factor
+    # ── Deciding factor ──────────────────────────────────────────────────
     deciding = scores.get("deciding_factor", "")
     if deciding:
-        pdf.set_font("Helvetica", "B", 8)
-        pdf.set_text_color(*MUTED)
-        pdf.set_x(18)
-        pdf.cell(0, 6, "DECIDING FACTOR", new_x="LMARGIN", new_y="NEXT")
-        pdf.ln(2)
-        pdf.set_fill_color(*GOLD_LIGHT)
-        pdf.set_draw_color(*GOLD_DARK)
-        pdf.set_line_width(0.8)
+        pdf._rule(GOLD, 0.5)
+        pdf._section_label("DECIDING FACTOR")
         y0 = pdf.get_y()
-        deciding_clean = _s(deciding)
-        n = max(12, len(deciding_clean) // 85 * 5.5 + 12)
-        pdf.rect(18, y0, 174, n, "DF")
-        pdf.set_line_width(0.2)
-        pdf.set_x(22)
+        pdf.set_x(L + 4)
         pdf.set_font("Helvetica", "I", 9.5)
-        pdf.set_text_color(*GOLD_DARK)
-        pdf.multi_cell(166, 5.5, deciding_clean, new_x="LMARGIN", new_y="NEXT")
+        pdf.set_text_color(*GOLD)
+        pdf.multi_cell(TW - 4, 5.5, _s(deciding), new_x="LMARGIN", new_y="NEXT")
+        y1 = pdf.get_y()
+        pdf.set_draw_color(*GOLD)
+        pdf.set_line_width(2)
+        pdf.line(L, y0, L, y1)
+        pdf.set_line_width(0.2)
 
 
 # ---------------------------------------------------------------------------
-# Public entry point
+# Entry point
 # ---------------------------------------------------------------------------
 def generate_debate_pdf(state: dict, session_id: str = "") -> bytes:
-    args_for    = state.get("arguments_for", [])
+    args_for     = state.get("arguments_for", [])
     args_against = state.get("arguments_against", [])
-    rounds_played = max(len(args_for), len(args_against), 1)
+    rounds       = max(len(args_for), len(args_against), 1)
 
     pdf = DebatePDF()
 
@@ -473,31 +478,28 @@ def generate_debate_pdf(state: dict, session_id: str = "") -> bytes:
     pdf.cover_page(
         topic=state.get("topic", "Unknown Topic"),
         session_id=session_id,
-        rounds=rounds_played,
+        rounds=rounds,
         winner=state.get("winner", ""),
     )
 
-    # Debate rounds
+    # Rounds
     pdf.add_page()
-    for i in range(rounds_played):
+    for i in range(rounds):
         # Round header
-        pdf.set_fill_color(*LIGHT_GRAY)
-        pdf.set_draw_color(*MID_GRAY)
+        pdf.set_fill_color(*NEAR_WHITE)
+        pdf.set_draw_color(*RULE)
         pdf.set_line_width(0.2)
-        pdf.set_x(18)
-        pdf.set_font("Helvetica", "B", 9)
+        pdf.set_x(L)
+        pdf.set_font("Helvetica", "B", 8)
         pdf.set_text_color(*MUTED)
-        pdf.cell(174, 9, f"  ROUND {i + 1}", fill=True,
-                 new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(TW, 8, f"  ROUND {i + 1}", fill=True, new_x="LMARGIN", new_y="NEXT")
         pdf.ln(5)
 
         if i < len(args_for):
-            _render_argument(pdf, "PRO", args_for[i]["content"],
-                             PRO_DARK, PRO_LIGHT)
+            _render_argument(pdf, "PRO", args_for[i]["content"], PRO)
         if i < len(args_against):
-            _render_argument(pdf, "CON", args_against[i]["content"],
-                             CON_DARK, CON_LIGHT)
-        pdf.ln(4)
+            _render_argument(pdf, "CON", args_against[i]["content"], CON)
+        pdf.ln(3)
 
     # Verdict
     _render_verdict(pdf, state)
