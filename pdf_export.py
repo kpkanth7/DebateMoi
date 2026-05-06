@@ -62,7 +62,7 @@ def _s(text: str) -> str:
     for src, dst in _SUBS.items():
         text = text.replace(src, dst)
     text = _EMOJI.sub("", text)
-    return text.encode("latin-1", "ignore").decode("latin-1")
+    return "".join(ch if ord(ch) < 256 else "-" for ch in text)
 
 
 def _strip_md(text: str) -> str:

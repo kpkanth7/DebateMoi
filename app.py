@@ -702,18 +702,22 @@ with col_download:
     # PDF Export button — use cached bytes to avoid regenerating on every rerun
     if st.session_state.debate_complete and st.session_state.debate_state:
         if not st.session_state.pdf_bytes:
-            st.session_state.pdf_bytes = generate_debate_pdf(
-                st.session_state.debate_state, st.session_state.session_id
-            )
-        with download_placeholder.container():
-            st.markdown('<div style="margin-top: 1.5rem;"></div>', unsafe_allow_html=True)
-            st.download_button(
-                "📄 Download PDF",
-                data=st.session_state.pdf_bytes,
-                file_name=f"debatemoi_{st.session_state.session_id}.pdf",
-                mime="application/pdf",
-                use_container_width=True,
-            )
+            try:
+                st.session_state.pdf_bytes = generate_debate_pdf(
+                    st.session_state.debate_state, st.session_state.session_id
+                )
+            except Exception:
+                st.session_state.pdf_bytes = None
+        if st.session_state.pdf_bytes:
+            with download_placeholder.container():
+                st.markdown('<div style="margin-top: 1.5rem;"></div>', unsafe_allow_html=True)
+                st.download_button(
+                    "📄 Download PDF",
+                    data=st.session_state.pdf_bytes,
+                    file_name=f"debatemoi_{st.session_state.session_id}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                )
 
 
 # ---------------------------------------------------------------------------
@@ -987,18 +991,23 @@ if start_clicked:
 
         # Populate top-right download button (generate once, cache)
         if st.session_state.debate_state:
-            st.session_state.pdf_bytes = generate_debate_pdf(
-                st.session_state.debate_state, st.session_state.session_id
-            )
-            with download_placeholder.container():
-                st.markdown('<div style="margin-top: 1.5rem;"></div>', unsafe_allow_html=True)
-                st.download_button(
-                    "📄 Download PDF",
-                    data=st.session_state.pdf_bytes,
-                    file_name=f"debatemoi_{st.session_state.session_id}.pdf",
-                    mime="application/pdf",
-                    use_container_width=True,
+            try:
+                st.session_state.pdf_bytes = generate_debate_pdf(
+                    st.session_state.debate_state, st.session_state.session_id
                 )
+            except Exception as pdf_err:
+                st.warning(f"PDF generation failed: {pdf_err}")
+                st.session_state.pdf_bytes = None
+            if st.session_state.pdf_bytes:
+                with download_placeholder.container():
+                    st.markdown('<div style="margin-top: 1.5rem;"></div>', unsafe_allow_html=True)
+                    st.download_button(
+                        "📄 Download PDF",
+                        data=st.session_state.pdf_bytes,
+                        file_name=f"debatemoi_{st.session_state.session_id}.pdf",
+                        mime="application/pdf",
+                        use_container_width=True,
+                    )
 
         # Show verdict
         if st.session_state.debate_state:
