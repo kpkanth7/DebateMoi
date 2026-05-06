@@ -90,7 +90,7 @@ class DebatePDF(FPDF):
         self.set_font("Helvetica", "", 7)
         self.set_text_color(*MUTED)
         self.set_xy(L, 7)
-        self.cell(0, 6, "DEBATEMOI  —  DEBATE TRANSCRIPT", align="L")
+        self.cell(0, 6, "DEBATEMOI  |  DEBATE TRANSCRIPT", align="L")
         self.set_xy(L, 7)
         self.cell(0, 6, f"Page {self.page_no()}", align="R")
         self.set_y(20)
@@ -117,14 +117,14 @@ class DebatePDF(FPDF):
         """Small all-caps muted label above a section."""
         self.set_font("Helvetica", "B", 7)
         self.set_text_color(*MUTED)
-        self.cell(0, 5, text, new_x="LMARGIN", new_y="NEXT")
+        self.cell(0, 5, _s(text), new_x="LMARGIN", new_y="NEXT")
         self.ln(1)
 
     def _body(self, text: str, indent: int = 0):
         self.set_x(L + indent)
         self.set_font("Helvetica", "", 9.5)
         self.set_text_color(*BODY)
-        self.multi_cell(TW - indent, 5.5, text, new_x="LMARGIN", new_y="NEXT")
+        self.multi_cell(TW - indent, 5.5, _s(text), new_x="LMARGIN", new_y="NEXT")
 
     # ------------------------------------------------------------------ cover
     def cover_page(self, topic: str, session_id: str, rounds: int, winner: str = ""):
@@ -427,9 +427,9 @@ def _render_scores(pdf: DebatePDF, scores: dict):
     pdf.set_text_color(*WHITE)
     pdf.cell(c0, 8.5, "  TOTAL", fill=True)
     pdf.set_text_color(180, 230, 245)
-    pdf.cell(c1, 8.5, str(scores.get("pro_total", "—")), align="C", fill=True)
+    pdf.cell(c1, 8.5, str(scores.get("pro_total", "-")), align="C", fill=True)
     pdf.set_text_color(255, 180, 200)
-    pdf.cell(c2, 8.5, str(scores.get("con_total", "—")), align="C", fill=True,
+    pdf.cell(c2, 8.5, str(scores.get("con_total", "-")), align="C", fill=True,
              new_x="LMARGIN", new_y="NEXT")
     pdf.ln(10)
 
