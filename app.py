@@ -5,7 +5,9 @@ Cinematic dark-mode debate interface with streaming, session recovery,
 rate limiting, and dramatic verdict reveal.
 """
 
+import html as html_lib
 import json
+import re
 import uuid
 import streamlit as st
 import streamlit.components.v1 as components
@@ -54,7 +56,7 @@ else:
     _dot_color = "rgba(255,255,255,0.03)"
 st.markdown(f"""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap');
 
     :root {{
         --bg-primary: {_bg1};
@@ -82,8 +84,26 @@ st.markdown(f"""
         content: '';
         position: fixed;
         top: 0; left: 0; right: 0; bottom: 0;
-        background-image: radial-gradient({_dot_color} 1px, transparent 1px);
-        background-size: 30px 30px;
+        background-image:
+            radial-gradient({_dot_color} 1px, transparent 1px),
+            linear-gradient(rgba(0,212,255,0.015) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0,212,255,0.015) 1px, transparent 1px);
+        background-size: 30px 30px, 60px 60px, 60px 60px;
+        pointer-events: none;
+        z-index: 0;
+    }}
+
+    .stApp::after {{
+        content: '';
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 2px,
+            rgba(0,0,0,0.03) 2px,
+            rgba(0,0,0,0.03) 4px
+        );
         pointer-events: none;
         z-index: 0;
     }}
@@ -106,8 +126,9 @@ st.markdown(f"""
     }}
 
     h1, h2, h3 {{
-        font-family: 'Inter', sans-serif !important;
-        font-weight: 800 !important;
+        font-family: 'Orbitron', sans-serif !important;
+        font-weight: 700 !important;
+        letter-spacing: 1px !important;
     }}
 
     [data-testid="InputInstructions"] {{
@@ -160,25 +181,40 @@ st.markdown(f"""
         padding: 1.5rem;
         margin-bottom: 1rem;
         border: 1px solid var(--border-subtle);
-        animation: fadeSlideIn 0.6s ease-out;
         font-family: 'JetBrains Mono', monospace;
         line-height: 1.7;
+        position: relative;
+        overflow: hidden;
+    }}
+
+    .debate-card::before {{
+        content: '';
+        position: absolute;
+        top: 0; left: -100%;
+        width: 60%;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+        animation: shimmer 3s ease-in-out infinite;
     }}
 
     .debate-card.pro {{
         border-left: 3px solid var(--pro-color);
         box-shadow: 0 4px 20px {_card_shadow_pro};
+        animation: slideInLeft 0.5s ease-out;
     }}
 
     .debate-card.con {{
         border-left: 3px solid var(--con-color);
         box-shadow: 0 4px 20px {_card_shadow_con};
+        animation: slideInRight 0.5s ease-out;
     }}
 
     .debate-card.judge {{
-        border: 2px solid var(--judge-color);
-        box-shadow: 0 4px 30px var(--judge-glow);
+        border: 1px solid rgba(255, 215, 0, 0.4);
+        border-top: 3px solid var(--judge-color);
+        box-shadow: 0 4px 40px var(--judge-glow), inset 0 0 60px rgba(255,215,0,0.02);
         background: rgba(40, 35, 10, 0.5);
+        animation: judgeReveal 0.8s ease-out;
     }}
 
     .card-header {{
@@ -220,16 +256,22 @@ st.markdown(f"""
 
     .verdict-winner {{
         text-align: center;
-        font-family: 'Inter', sans-serif;
+        font-family: 'Orbitron', sans-serif;
         font-weight: 900;
-        font-size: 2.2rem;
+        font-size: 1.8rem;
         margin: 1rem 0;
-        text-shadow: 0 0 30px var(--judge-glow);
-        animation: glowPulse 2s ease-in-out infinite;
+        letter-spacing: 2px;
+        animation: glowPulse 2s ease-in-out infinite, judgeReveal 0.8s ease-out;
     }}
 
-    .verdict-winner.pro {{ color: var(--pro-color); text-shadow: 0 0 30px var(--pro-glow); }}
-    .verdict-winner.con {{ color: var(--con-color); text-shadow: 0 0 30px var(--con-glow); }}
+    .verdict-winner.pro {{
+        color: var(--pro-color);
+        text-shadow: 0 0 20px var(--pro-glow), 0 0 60px rgba(0,212,255,0.2);
+    }}
+    .verdict-winner.con {{
+        color: var(--con-color);
+        text-shadow: 0 0 20px var(--con-glow), 0 0 60px rgba(255,0,110,0.2);
+    }}
 
     .score-bar {{
         flex: 1;
@@ -242,11 +284,17 @@ st.markdown(f"""
     .score-fill {{
         height: 100%;
         border-radius: 4px;
-        transition: width 1s ease;
+        animation: fillBar 1.2s ease-out forwards;
     }}
 
-    .score-fill.pro {{ background: linear-gradient(90deg, var(--pro-color), #00a8cc); }}
-    .score-fill.con {{ background: linear-gradient(90deg, var(--con-color), #cc005a); }}
+    .score-fill.pro {{
+        background: linear-gradient(90deg, #003d4d, var(--pro-color));
+        box-shadow: 0 0 8px rgba(0, 212, 255, 0.5);
+    }}
+    .score-fill.con {{
+        background: linear-gradient(90deg, #4d0020, var(--con-color));
+        box-shadow: 0 0 8px rgba(255, 0, 110, 0.5);
+    }}
 
     .score-value {{
         width: 30px;
@@ -259,25 +307,31 @@ st.markdown(f"""
 
     .main-title {{
         text-align: center;
-        font-family: 'Inter', sans-serif;
+        font-family: 'Orbitron', sans-serif;
         font-weight: 900;
-        font-size: 3rem;
-        background: linear-gradient(135deg, #00d4ff, #a855f7, #ff006e);
+        font-size: 2.8rem;
+        background: linear-gradient(135deg, #00d4ff 0%, #a855f7 50%, #ff006e 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
+        background-size: 200% 200%;
         margin-bottom: 0.2rem;
-        animation: fadeSlideIn 0.8s ease-out;
+        animation: fadeSlideIn 0.8s ease-out, gradientShift 4s ease infinite;
+        letter-spacing: 3px;
+        text-shadow: none;
+        filter: drop-shadow(0 0 20px rgba(0, 212, 255, 0.3));
     }}
 
     .main-subtitle {{
         text-align: center;
         font-family: 'JetBrains Mono', monospace;
-        font-size: 0.85rem;
+        font-size: 0.78rem;
         color: var(--text-muted);
-        letter-spacing: 2px;
+        letter-spacing: 4px;
         text-transform: uppercase;
         margin-bottom: 2rem;
+        opacity: 0;
+        animation: fadeSlideIn 0.8s ease-out 0.3s forwards;
     }}
 
     .rate-limit-banner {{
@@ -297,9 +351,38 @@ st.markdown(f"""
         to {{ opacity: 1; transform: translateY(0); }}
     }}
 
+    @keyframes slideInLeft {{
+        from {{ opacity: 0; transform: translateX(-20px); }}
+        to {{ opacity: 1; transform: translateX(0); }}
+    }}
+
+    @keyframes slideInRight {{
+        from {{ opacity: 0; transform: translateX(20px); }}
+        to {{ opacity: 1; transform: translateX(0); }}
+    }}
+
+    @keyframes judgeReveal {{
+        from {{ opacity: 0; transform: translateY(20px) scale(0.97); }}
+        to {{ opacity: 1; transform: translateY(0) scale(1); }}
+    }}
+
+    @keyframes shimmer {{
+        0% {{ left: -100%; }}
+        100% {{ left: 200%; }}
+    }}
+
+    @keyframes gradientShift {{
+        0%, 100% {{ background-position: 0% 50%; }}
+        50% {{ background-position: 100% 50%; }}
+    }}
+
     @keyframes glowPulse {{
-        0%, 100% {{ opacity: 1; }}
-        50% {{ opacity: 0.85; }}
+        0%, 100% {{ opacity: 1; filter: brightness(1); }}
+        50% {{ opacity: 0.9; filter: brightness(1.15); }}
+    }}
+
+    @keyframes fillBar {{
+        from {{ width: 0%; }}
     }}
 
     .stMarkdown, .stMarkdown p {{ color: var(--text-primary) !important; }}
@@ -312,10 +395,49 @@ st.markdown(f"""
         background: linear-gradient(135deg, #ffd700, #ff8c00) !important;
         color: #000 !important;
         font-weight: 700 !important;
+        font-family: 'Orbitron', sans-serif !important;
+        font-size: 0.75rem !important;
+        letter-spacing: 1px !important;
         border: none !important;
         border-radius: 8px !important;
+        transition: all 0.3s ease !important;
     }}
+
+    .stDownloadButton > button:hover {{
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 20px rgba(255, 215, 0, 0.35) !important;
+    }}
+
     div[data-testid="stStatusWidget"] {{ visibility: hidden; }}
+
+    .debate-col-header {{
+        text-align: center;
+        font-family: 'Orbitron', sans-serif;
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        padding: 0.4rem 0;
+        margin-bottom: 0.5rem;
+        border-radius: 6px;
+    }}
+    .debate-col-header.pro {{
+        color: var(--pro-color);
+        border: 1px solid rgba(0,212,255,0.2);
+        background: rgba(0,212,255,0.04);
+    }}
+    .debate-col-header.con {{
+        color: var(--con-color);
+        border: 1px solid rgba(255,0,110,0.2);
+        background: rgba(255,0,110,0.04);
+    }}
+
+    .stAlert {{
+        background: rgba(0,212,255,0.06) !important;
+        border: 1px solid rgba(0,212,255,0.2) !important;
+        border-radius: 10px !important;
+        font-family: 'JetBrains Mono', monospace !important;
+    }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -377,19 +499,25 @@ def try_recover_session(sid: str):
         pass  # No saved state or DB doesn't exist yet
 
 
-# ---------------------------------------------------------------------------
-# Helper: Get User IP
-# ---------------------------------------------------------------------------
+@st.cache_resource
+def _get_rate_limiter() -> "RateLimiter":
+    """Singleton RateLimiter — one SQLite connection for the app's lifetime."""
+    return RateLimiter()
+
+
+_IP_RE = re.compile(r"^(\d{1,3}\.){3}\d{1,3}$|^[0-9a-fA-F:]+$")
+
+
 def get_user_ip() -> str:
-    """Extract user IP from Streamlit headers or fallback."""
+    """Extract user IP from headers. Validates format; falls back to sentinel."""
     try:
         headers = st.context.headers
-        # Check common proxy headers
-        for header in ["X-Forwarded-For", "X-Real-Ip", "CF-Connecting-IP"]:
-            ip = headers.get(header)
-            if ip:
-                return ip.split(",")[0].strip()
-        return headers.get("Host", "127.0.0.1")
+        for header in ["CF-Connecting-IP", "X-Real-Ip", "X-Forwarded-For"]:
+            raw = headers.get(header, "")
+            candidate = raw.split(",")[0].strip()
+            if candidate and _IP_RE.match(candidate):
+                return candidate
+        return "127.0.0.1"
     except Exception:
         return "127.0.0.1"
 
@@ -397,15 +525,11 @@ def get_user_ip() -> str:
 # ---------------------------------------------------------------------------
 # Helper: Render Debate Card (inline HTML)
 # ---------------------------------------------------------------------------
-import re
-
 def _md_to_html(text: str) -> str:
-    """Convert basic markdown to HTML for card display."""
-    # Bold: **text** → <strong>text</strong>
+    """HTML-escape then convert markdown to HTML. Escaping first prevents XSS."""
+    text = html_lib.escape(text)
     text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
-    # Italic: *text* → <em>text</em>
     text = re.sub(r'\*(.+?)\*', r'<em>\1</em>', text)
-    # Convert newlines to <br> for proper spacing
     text = text.replace('\n\n', '<br><br>').replace('\n', '<br>')
     return text
 
@@ -636,7 +760,7 @@ with st.sidebar:
     st.markdown("---")
 
     # Rate limiting info
-    rate_limiter = RateLimiter()
+    rate_limiter = _get_rate_limiter()
     user_ip = get_user_ip()
     remaining_debates = rate_limiter.get_remaining(user_ip)
 
@@ -689,7 +813,6 @@ if remaining_debates <= 0 and not st.session_state.debate_running and not st.ses
 # ---------------------------------------------------------------------------
 def render_rounds_side_by_side(events):
     """Display debate events in side-by-side Pro (left) vs Con (right) layout."""
-    # Group events by round
     rounds = {}
     for e in events:
         r = e["round"]
@@ -697,8 +820,21 @@ def render_rounds_side_by_side(events):
             rounds[r] = {}
         rounds[r][e["type"]] = e["content"]
 
+    # Column headers on first render
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown('<div class="debate-col-header pro">⚔️ &nbsp; Pro &nbsp; ⚔️</div>', unsafe_allow_html=True)
+    with c2:
+        st.markdown('<div class="debate-col-header con">🛡️ &nbsp; Con &nbsp; 🛡️</div>', unsafe_allow_html=True)
+
     for r in sorted(rounds.keys()):
-        st.markdown(f'<div style="text-align:center;margin:1.2rem 0 0.6rem;font-family:Inter,sans-serif;font-weight:700;font-size:0.8rem;letter-spacing:2px;color:#555570;text-transform:uppercase;">— Round {r} —</div>', unsafe_allow_html=True)
+        st.markdown(f"""
+        <div style="display:flex;align-items:center;gap:1rem;margin:2rem 0 1rem;opacity:0;animation:fadeSlideIn 0.5s ease-out forwards;">
+            <div style="flex:1;height:1px;background:linear-gradient(90deg,transparent,rgba(0,212,255,0.3));"></div>
+            <div style="font-family:'Orbitron',sans-serif;font-weight:700;font-size:0.7rem;letter-spacing:3px;color:#555570;text-transform:uppercase;padding:0.3rem 1rem;border:1px solid rgba(255,255,255,0.06);border-radius:20px;background:rgba(255,255,255,0.02);">Round {r}</div>
+            <div style="flex:1;height:1px;background:linear-gradient(90deg,rgba(255,0,110,0.3),transparent);"></div>
+        </div>
+        """, unsafe_allow_html=True)
         col_pro, col_con = st.columns(2)
         with col_pro:
             if "pro" in rounds[r]:
@@ -789,7 +925,13 @@ if start_clicked:
                         })
                         # Render side-by-side now that we have both
                         rnd = latest["round"]
-                        st.markdown(f'<div style="text-align:center;margin:1.2rem 0 0.6rem;font-family:Inter,sans-serif;font-weight:700;font-size:0.8rem;letter-spacing:2px;color:#555570;text-transform:uppercase;">— Round {rnd} —</div>', unsafe_allow_html=True)
+                        st.markdown(f"""
+                        <div style="display:flex;align-items:center;gap:1rem;margin:2rem 0 1rem;">
+                            <div style="flex:1;height:1px;background:linear-gradient(90deg,transparent,rgba(0,212,255,0.3));"></div>
+                            <div style="font-family:'Orbitron',sans-serif;font-weight:700;font-size:0.7rem;letter-spacing:3px;color:#555570;text-transform:uppercase;padding:0.3rem 1rem;border:1px solid rgba(255,255,255,0.06);border-radius:20px;background:rgba(255,255,255,0.02);">Round {rnd}</div>
+                            <div style="flex:1;height:1px;background:linear-gradient(90deg,rgba(255,0,110,0.3),transparent);"></div>
+                        </div>
+                        """, unsafe_allow_html=True)
                         c1, c2 = st.columns(2)
                         with c1:
                             if current_pro:
