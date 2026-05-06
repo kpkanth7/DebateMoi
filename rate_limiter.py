@@ -1,90 +1,40 @@
 """
-DebateMoi — IP-Based Rate Limiter
-==================================
-SQLite-backed daily rate limiter that persists across app restarts.
-Limits users to 3 debates per calendar day per IP address.
+DebateMoi — In-Memory Rate Limiter
+====================================
+Threading-safe, in-memory daily rate limiter.
+Persists for the lifetime of the running Streamlit process (survives reruns,
+resets if the server restarts — acceptable for a demo).
 """
 
-import sqlite3
+import threading
 from datetime import datetime, timezone
 
 
 class RateLimiter:
-    """IP-based daily rate limiter backed by SQLite."""
-
     MAX_DEBATES_PER_DAY = 3
 
-    def __init__(self, db_path: str = "rate_limits.db"):
-        self.conn = sqlite3.connect(db_path, check_same_thread=False)
-        self._init_db()
-
-    def _init_db(self):
-        """Create the rate limits table if it doesn't exist."""
-        self.conn.execute("""
-            CREATE TABLE IF NOT EXISTS rate_limits (
-                ip_address TEXT NOT NULL,
-                date TEXT NOT NULL,
-                count INTEGER DEFAULT 0,
-                PRIMARY KEY (ip_address, date)
-            )
-        """)
-        self.conn.commit()
-        self._cleanup()
-
-    def _cleanup(self):
-        """Remove entries older than 7 days to keep the DB small."""
-        cutoff = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        self.conn.execute(
-            "DELETE FROM rate_limits WHERE date < date(?, '-7 days')",
-            (cutoff,)
-        )
-        self.conn.commit()
+    def __init__(self):
+        self._lock = threading.Lock()
+        # {identifier: {date_str: count}}
+        self._data: dict[str, dict[str, int]] = {}
 
     def _today(self) -> str:
         return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-    def get_count(self, ip: str) -> int:
-        row = self.conn.execute(
-            "SELECT count FROM rate_limits WHERE ip_address = ? AND date = ?",
-            (ip, self._today())
-        ).fetchone()
-        return row[0] if row else 0
+    def get_count(self, identifier: str) -> int:
+        return self._data.get(identifier, {}).get(self._today(), 0)
 
-    def get_remaining(self, ip: str) -> int:
-        return max(0, self.MAX_DEBATES_PER_DAY - self.get_count(ip))
+    def get_remaining(self, identifier: str) -> int:
+        return max(0, self.MAX_DEBATES_PER_DAY - self.get_count(identifier))
 
-    def check_rate_limit(self, ip: str) -> bool:
-        return self.get_count(ip) < self.MAX_DEBATES_PER_DAY
-
-    def increment(self, ip: str):
-        today = self._today()
-        self.conn.execute("""
-            INSERT INTO rate_limits (ip_address, date, count)
-            VALUES (?, ?, 1)
-            ON CONFLICT(ip_address, date)
-            DO UPDATE SET count = count + 1
-        """, (ip, today))
-        self.conn.commit()
-
-    def check_and_increment(self, ip: str) -> bool:
-        """Atomically check limit and increment if allowed. Returns True if debate can proceed."""
-        today = self._today()
-        with self.conn:
-            cur = self.conn.execute(
-                "SELECT count FROM rate_limits WHERE ip_address = ? AND date = ?",
-                (ip, today)
-            )
-            row = cur.fetchone()
-            count = row[0] if row else 0
+    def check_and_increment(self, identifier: str) -> bool:
+        """Atomically check limit and increment. Returns True if allowed."""
+        with self._lock:
+            today = self._today()
+            count = self._data.get(identifier, {}).get(today, 0)
             if count >= self.MAX_DEBATES_PER_DAY:
                 return False
-            self.conn.execute("""
-                INSERT INTO rate_limits (ip_address, date, count)
-                VALUES (?, ?, 1)
-                ON CONFLICT(ip_address, date)
-                DO UPDATE SET count = count + 1
-            """, (ip, today))
-        return True
-
-    def close(self):
-        self.conn.close()
+            if identifier not in self._data:
+                self._data[identifier] = {}
+            self._data[identifier][today] = count + 1
+            return True

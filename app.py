@@ -503,15 +503,19 @@ def try_recover_session(sid: str):
 
 @st.cache_resource
 def _get_rate_limiter() -> "RateLimiter":
-    """Singleton RateLimiter — one SQLite connection for the app's lifetime."""
+    """Singleton RateLimiter — lives for the lifetime of the Streamlit process."""
     return RateLimiter()
 
 
-_IP_RE = re.compile(r"^(\d{1,3}\.){3}\d{1,3}$|^[0-9a-fA-F:]+$")
+_IP_RE = re.compile(r"^(\d{1,3}\.){3}\d{1,3}$")
 
 
-def get_user_ip() -> str:
-    """Extract user IP from headers. Validates format; falls back to sentinel."""
+def get_user_identifier() -> str:
+    """
+    Return a stable per-user identifier for rate limiting.
+    Priority: CF-Connecting-IP → X-Real-Ip → X-Forwarded-For → Streamlit session ID.
+    The session-ID fallback is per browser tab, which is fine for a demo.
+    """
     try:
         headers = st.context.headers
         for header in ["CF-Connecting-IP", "X-Real-Ip", "X-Forwarded-For"]:
@@ -519,9 +523,17 @@ def get_user_ip() -> str:
             candidate = raw.split(",")[0].strip()
             if candidate and _IP_RE.match(candidate):
                 return candidate
-        return "127.0.0.1"
     except Exception:
-        return "127.0.0.1"
+        pass
+    # Fallback: Streamlit's internal session ID (unique per browser tab)
+    try:
+        from streamlit.runtime.scriptrunner import get_script_run_ctx
+        ctx = get_script_run_ctx()
+        if ctx and ctx.session_id:
+            return f"sid_{ctx.session_id}"
+    except Exception:
+        pass
+    return "unknown"
 
 
 # ---------------------------------------------------------------------------
@@ -725,56 +737,54 @@ with st.sidebar:
     st.markdown("### ⚙️ Debate Configuration")
     st.markdown("---")
 
-    # Session ID
+    # Session ID — editable input + one-click copy
     session_id = st.text_input(
         "Session ID",
         value=st.session_state.session_id,
-        help="Your unique debate save code. Copy it to resume this debate later, or paste an old one to reload a previous session.",
+        disabled=st.session_state.debate_running,
+        help="Paste a previous ID to restore a saved debate. Copy your current ID to come back later.",
     )
     if session_id != st.session_state.session_id:
         st.session_state.session_id = session_id
-        st.session_state.recovered = False  # Reset recovery flag for new ID
+        st.session_state.recovered = False
         st.session_state.debate_events = []
         st.session_state.debate_state = None
         st.session_state.debate_complete = False
+        st.session_state.pdf_bytes = None
     st.session_state.session_id = session_id
 
+    # Copy button via st.code (has built-in copy icon)
+    st.markdown('<div style="font-size:0.68rem;color:#555570;margin-bottom:2px;">📋 Click icon to copy your Session ID:</div>', unsafe_allow_html=True)
+    st.code(session_id, language=None)
+
     st.markdown("""
-    <div style="font-size: 0.72rem; color: #555570; line-height: 1.5; margin: -0.5rem 0 0.8rem 0; padding: 0.5rem 0.6rem; background: rgba(255,255,255,0.02); border-radius: 6px; border-left: 2px solid rgba(0, 212, 255, 0.3);">
-        💾 <strong style="color: #8888a0;">Save & Resume</strong> — This ID links to your debate's saved state.
-        If you refresh or close the tab, just paste this ID back to reload your full debate transcript.
+    <div style="font-size: 0.7rem; color: #555570; margin: -0.3rem 0 0.8rem 0; padding: 0.4rem 0.6rem; background: rgba(0,212,255,0.04); border-radius: 6px; border-left: 2px solid rgba(0,212,255,0.25);">
+        Paste this ID back any time to reload your debate transcript.
     </div>
     """, unsafe_allow_html=True)
 
     # Topic
     topic = st.text_area(
         "Debate Topic",
-        height=180,
+        height=160,
         placeholder="e.g., Should artificial intelligence research be paused globally?",
-        disabled=st.session_state.debate_running or st.session_state.debate_complete
+        disabled=st.session_state.debate_running or st.session_state.debate_complete,
     )
     if st.session_state.debate_complete:
-        st.markdown('<div style="font-size: 0.75rem; color: #ff006e; margin-top: -10px; margin-bottom: 10px;">Topic locked. Refresh or enter a new Session ID to start a new debate.</div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-size:0.72rem;color:#ff006e;margin-top:-8px;margin-bottom:8px;">🔒 Topic locked — enter a new Session ID or refresh to start fresh.</div>', unsafe_allow_html=True)
 
     # Character counter
     if topic:
         remaining = 200 - len(topic)
         color = "#00d4ff" if remaining > 50 else "#ffd700" if remaining > 20 else "#ff006e"
-        st.markdown(f'<p style="text-align: right; font-size: 0.75rem; color: {color}; font-family: JetBrains Mono, monospace;">{len(topic)}/200</p>', unsafe_allow_html=True)
+        st.markdown(f'<p style="text-align:right;font-size:0.72rem;color:{color};font-family:JetBrains Mono,monospace;">{len(topic)}/200</p>', unsafe_allow_html=True)
 
     st.markdown("---")
 
-    # Rate limiting info
+    # Rate limiter — silent, no counter shown
     rate_limiter = _get_rate_limiter()
-    user_ip = get_user_ip()
-    remaining_debates = rate_limiter.get_remaining(user_ip)
-
-    st.markdown(f"""
-    <div style="text-align: center; padding: 0.5rem; background: rgba(255,255,255,0.03); border-radius: 8px; margin-bottom: 1rem;">
-        <div style="font-size: 0.75rem; color: #555570; text-transform: uppercase; letter-spacing: 1px;">Debates Remaining Today</div>
-        <div style="font-size: 1.8rem; font-weight: 800; color: {'#00d4ff' if remaining_debates > 1 else '#ffd700' if remaining_debates == 1 else '#ff006e'};">{remaining_debates}/3</div>
-    </div>
-    """, unsafe_allow_html=True)
+    user_identifier = get_user_identifier()
+    remaining_debates = rate_limiter.get_remaining(user_identifier)
 
     # Start button
     start_clicked = st.button(
@@ -889,7 +899,7 @@ if start_clicked:
         st.error("Topic must be 200 characters or fewer.")
         st.stop()
 
-    if not rate_limiter.check_and_increment(user_ip):
+    if not rate_limiter.check_and_increment(user_identifier):
         st.error("Daily debate limit reached. Come back tomorrow!")
         st.stop()
 
