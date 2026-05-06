@@ -457,6 +457,8 @@ if "debate_events" not in st.session_state:
     st.session_state.debate_events = []
 if "recovered" not in st.session_state:
     st.session_state.recovered = False
+if "pdf_bytes" not in st.session_state:
+    st.session_state.pdf_bytes = None
 
 
 # ---------------------------------------------------------------------------
@@ -687,14 +689,17 @@ with col_title:
 
 with col_download:
     download_placeholder = st.empty()
-    # PDF Export button (only after debate is complete)
+    # PDF Export button — use cached bytes to avoid regenerating on every rerun
     if st.session_state.debate_complete and st.session_state.debate_state:
+        if not st.session_state.pdf_bytes:
+            st.session_state.pdf_bytes = generate_debate_pdf(
+                st.session_state.debate_state, st.session_state.session_id
+            )
         with download_placeholder.container():
             st.markdown('<div style="margin-top: 1.5rem;"></div>', unsafe_allow_html=True)
-            pdf_bytes = generate_debate_pdf(st.session_state.debate_state, st.session_state.session_id)
             st.download_button(
                 "📄 Download PDF",
-                data=pdf_bytes,
+                data=st.session_state.pdf_bytes,
                 file_name=f"debatemoi_{st.session_state.session_id}.pdf",
                 mime="application/pdf",
                 use_container_width=True,
@@ -772,7 +777,11 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
     # Start button
-    start_clicked = st.button("Start Debate", use_container_width=True, disabled=st.session_state.debate_running)
+    start_clicked = st.button(
+        "Start Debate",
+        use_container_width=True,
+        disabled=st.session_state.debate_running or remaining_debates <= 0,
+    )
 
     st.markdown("---")
 
@@ -880,7 +889,7 @@ if start_clicked:
         st.error("Topic must be 200 characters or fewer.")
         st.stop()
 
-    if not rate_limiter.check_rate_limit(user_ip):
+    if not rate_limiter.check_and_increment(user_ip):
         st.error("Daily debate limit reached. Come back tomorrow!")
         st.stop()
 
@@ -889,14 +898,11 @@ if start_clicked:
     st.session_state.debate_complete = False
     st.session_state.debate_events = []
     st.session_state.debate_state = None
+    st.session_state.pdf_bytes = None
 
-    # Increment rate limit
-    rate_limiter.increment(user_ip)
-
-    # Create graph
-    graph, conn = create_graph()
-
+    conn = None
     try:
+        graph, conn = create_graph()
         initial_state = get_initial_state(topic.strip())
         config = {"configurable": {"thread_id": session_id}}
 
@@ -971,14 +977,16 @@ if start_clicked:
         st.session_state.debate_complete = True
         st.session_state.debate_running = False
 
-        # Populate top-right download button
+        # Populate top-right download button (generate once, cache)
         if st.session_state.debate_state:
+            st.session_state.pdf_bytes = generate_debate_pdf(
+                st.session_state.debate_state, st.session_state.session_id
+            )
             with download_placeholder.container():
                 st.markdown('<div style="margin-top: 1.5rem;"></div>', unsafe_allow_html=True)
-                pdf_bytes = generate_debate_pdf(st.session_state.debate_state, st.session_state.session_id)
                 st.download_button(
                     "📄 Download PDF",
-                    data=pdf_bytes,
+                    data=st.session_state.pdf_bytes,
                     file_name=f"debatemoi_{st.session_state.session_id}.pdf",
                     mime="application/pdf",
                     use_container_width=True,
@@ -993,4 +1001,5 @@ if start_clicked:
         st.error(f"An error occurred during the debate: {str(e)}")
         st.session_state.debate_running = False
     finally:
-        conn.close()
+        if conn is not None:
+            conn.close()

@@ -66,5 +66,25 @@ class RateLimiter:
         """, (ip, today))
         self.conn.commit()
 
+    def check_and_increment(self, ip: str) -> bool:
+        """Atomically check limit and increment if allowed. Returns True if debate can proceed."""
+        today = self._today()
+        with self.conn:
+            cur = self.conn.execute(
+                "SELECT count FROM rate_limits WHERE ip_address = ? AND date = ?",
+                (ip, today)
+            )
+            row = cur.fetchone()
+            count = row[0] if row else 0
+            if count >= self.MAX_DEBATES_PER_DAY:
+                return False
+            self.conn.execute("""
+                INSERT INTO rate_limits (ip_address, date, count)
+                VALUES (?, ?, 1)
+                ON CONFLICT(ip_address, date)
+                DO UPDATE SET count = count + 1
+            """, (ip, today))
+        return True
+
     def close(self):
         self.conn.close()

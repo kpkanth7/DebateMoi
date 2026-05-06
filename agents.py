@@ -207,7 +207,7 @@ def pro_agent_node(state: DebateState) -> dict:
     content = response.content
     usage = getattr(response, "usage_metadata", {}) or {}
     meta_usage = getattr(response, "response_metadata", {}).get("token_usage", {})
-    tokens_used = usage.get("output_tokens") or meta_usage.get("completion_tokens") or (len(content.split()) * 2)
+    tokens_used = usage.get("output_tokens") or meta_usage.get("completion_tokens") or (len(content) // 4)
 
     new_argument = {
         "round": current_round,
@@ -259,7 +259,7 @@ def con_agent_node(state: DebateState) -> dict:
     content = response.content
     usage = getattr(response, "usage_metadata", {}) or {}
     meta_usage = getattr(response, "response_metadata", {}).get("token_usage", {})
-    tokens_used = usage.get("output_tokens") or meta_usage.get("completion_tokens") or (len(content.split()) * 2)
+    tokens_used = usage.get("output_tokens") or meta_usage.get("completion_tokens") or (len(content) // 4)
 
     new_argument = {
         "round": current_round,
