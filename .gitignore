@@ -35,3 +35,7 @@ build/
 
 # uv
 uv.lock
+
+# Local planning / assistant workspace
+improvements.md
+.claude/
